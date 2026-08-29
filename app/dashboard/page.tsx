@@ -80,7 +80,7 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8080/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
+      const response = await fetch(`https://dtro-api.onrender.com/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
       const result = await response.json();
       const records = result.daily_records || [];
       setRawRecords(records);
@@ -127,7 +127,7 @@ export default function Dashboard() {
   const fetchCompareData = async () => {
     setCompLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8080/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
+      const response = await fetch(`https://dtro-api.onrender.com/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
       const result = await response.json();
       setCompRecords(result.records || []);
       setCompSummary(result.summary || {});
@@ -163,7 +163,7 @@ export default function Dashboard() {
     if (!uploadedFile) { alert("과거 데이터셋(CSV) 파일을 먼저 업로드해 주세요."); return; }
     setPredLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8080/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}`);
+      const response = await fetch(`https://dtro-api.onrender.com/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setPredLoading(false); return; }
       setPredSummary(result.summary); setPredChartData(result.chart_data); setFeatChartData(result.feat_data);
