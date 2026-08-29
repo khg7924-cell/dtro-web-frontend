@@ -7,6 +7,10 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
+// 🌟 현재 로컬 테스트 중이므로 로컬 백엔드 주소를 사용합니다. (배포 시 원래 주소로 변경 잊지마세요!)
+const API_URL = 'https://dtro-api.onrender.com'; 
+// 배포용 주소 백업: 'https://dtro-api.onrender.com'
+
 const theme = {
   bg: '#F8FAFC',          
   surface: '#FFFFFF',     
@@ -35,6 +39,11 @@ export default function Dashboard() {
   const [summary, setSummary] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
+  
+  // 🌟 실시간 차트 상태
+  const [chartMode, setChartMode] = useState('daily'); 
+  const [realtimeData, setRealtimeData] = useState<any[]>([]);
+  const [realtimeLoading, setRealtimeLoading] = useState(false);
   
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 7);
@@ -80,7 +89,7 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`https://dtro-api.onrender.com/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
+      const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
       const result = await response.json();
       const records = result.daily_records || [];
       setRawRecords(records);
@@ -124,10 +133,23 @@ export default function Dashboard() {
     }
   };
 
+  const fetchRealtimeData = async () => {
+    setRealtimeLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/realtime/${encodeURIComponent(station)}`);
+      const result = await response.json();
+      setRealtimeData(result.records || []);
+    } catch (error) {
+      console.error('실시간 API 통신 오류:', error);
+    } finally {
+      setRealtimeLoading(false);
+    }
+  };
+
   const fetchCompareData = async () => {
     setCompLoading(true);
     try {
-      const response = await fetch(`https://dtro-api.onrender.com/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
+      const response = await fetch(`${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
       const result = await response.json();
       setCompRecords(result.records || []);
       setCompSummary(result.summary || {});
@@ -135,25 +157,21 @@ export default function Dashboard() {
       const diff = result.summary?.diff || 0;
       const diffPct = result.summary?.diff_pct || 0;
       let reportText = `[${station}] ${baseYear}년 대비 ${compYear}년 전력 수요 분석 리포트\n\n`;
-      if (diff > 0) {
-        reportText += `▶ 종합 분석: 전년 대비 총 전력량이 ${Math.abs(diffPct)}% 증가(약 ${Math.abs(diff).toLocaleString()} kWh) 하였습니다.\n▶ 기상 요인: 이상 기후로 인한 냉난방 공조 설비 부하 증가가 주요 원인으로 추정됩니다.\n▶ 추가 요인: 영업일(휴일) 수 차이, 열차 운행 스케줄 변동, 승객수 증가 등의 요인이 복합적으로 작용했을 가능성이 있습니다.`;
-      } else if (diff < 0) {
-        reportText += `▶ 종합 분석: 전년 대비 총 전력량이 ${Math.abs(diffPct)}% 감소(약 ${Math.abs(diff).toLocaleString()} kWh) 하였습니다.\n▶ 기상 요인: 온화한 기후 조건 및 냉난방 설비의 최적화 운영이 전력 절감에 기여한 것으로 추정됩니다.\n▶ 추가 요인: 대기전력 차단, LED 교체 등 에너지 효율화 사업 및 승객수/운행스케줄 변동이 영향을 미쳤을 수 있습니다.`;
-      } else {
-        reportText += `▶ 종합 분석: 전년 대비 총 전력량의 변화가 거의 없습니다.`;
-      }
+      if (diff > 0) reportText += `▶ 종합 분석: 전년 대비 총 전력량이 ${Math.abs(diffPct)}% 증가(약 ${Math.abs(diff).toLocaleString()} kWh) 하였습니다.\n▶ 기상 요인: 이상 기후로 인한 냉난방 공조 설비 부하 증가가 주요 원인으로 추정됩니다.\n▶ 추가 요인: 영업일(휴일) 수 차이, 열차 운행 스케줄 변동, 승객수 증가 등의 요인이 복합적으로 작용했을 가능성이 있습니다.`;
+      else if (diff < 0) reportText += `▶ 종합 분석: 전년 대비 총 전력량이 ${Math.abs(diffPct)}% 감소(약 ${Math.abs(diff).toLocaleString()} kWh) 하였습니다.\n▶ 기상 요인: 온화한 기후 조건 및 냉난방 설비의 최적화 운영이 전력 절감에 기여한 것으로 추정됩니다.\n▶ 추가 요인: 대기전력 차단, LED 교체 등 에너지 효율화 사업 및 승객수/운행스케줄 변동이 영향을 미쳤을 수 있습니다.`;
+      else reportText += `▶ 종합 분석: 전년 대비 총 전력량의 변화가 거의 없습니다.`;
       setAiReport(reportText);
-    } catch (error) {
-      console.error('Compare API 오류:', error);
-    } finally {
-      setCompLoading(false);
-    }
+    } catch (error) { console.error('Compare API 오류:', error); } 
+    finally { setCompLoading(false); }
   };
 
   useEffect(() => {
-    if (mainTab === 'dashboard') fetchDashboardData();
+    if (mainTab === 'dashboard') {
+      if (chartMode === 'daily') fetchDashboardData();
+      else fetchRealtimeData();
+    }
     else if (mainTab === 'compare') fetchCompareData();
-  }, [station, mainTab]);
+  }, [station, mainTab, chartMode]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) setUploadedFile(e.target.files[0]);
@@ -163,15 +181,12 @@ export default function Dashboard() {
     if (!uploadedFile) { alert("과거 데이터셋(CSV) 파일을 먼저 업로드해 주세요."); return; }
     setPredLoading(true);
     try {
-      const response = await fetch(`https://dtro-api.onrender.com/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}`);
+      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setPredLoading(false); return; }
       setPredSummary(result.summary); setPredChartData(result.chart_data); setFeatChartData(result.feat_data);
-    } catch (error) {
-      alert('AI 예측 서버와 통신할 수 없습니다.');
-    } finally {
-      setPredLoading(false);
-    }
+    } catch (error) { alert('AI 예측 서버와 통신할 수 없습니다.'); } 
+    finally { setPredLoading(false); }
   };
 
   const handleExportExcel = () => {
@@ -218,9 +233,9 @@ export default function Dashboard() {
     };
   };
 
-  const getTabStyle = (tabId: string) => ({
-    padding: '8px 16px', backgroundColor: weatherTab === tabId ? theme.primary : '#F1F5F9', color: weatherTab === tabId ? 'white' : theme.textMuted,
-    border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: weatherTab === tabId ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease'
+  const getTabStyle = (isActive: boolean) => ({
+    padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted,
+    border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease'
   });
 
   return (
@@ -300,21 +315,44 @@ export default function Dashboard() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '32px' }}>
                 <Card>
-                  <h4 style={{ margin: '0 0 24px 0', color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
+                    <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
+                      <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
+                      <button onClick={() => setChartMode('realtime')} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
+                    </div>
+                  </div>
                   <div style={{ height: '320px', width: '100%' }}>
-                    {loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.textMuted }}>데이터 불러오는 중...</p> : (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                          <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-                          <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                          <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                          <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                          <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
-                          <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={28} />
-                          <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke={theme.danger} strokeWidth={3} dot={{ r: 4 }} />
-                        </ComposedChart>
-                      </ResponsiveContainer>
+                    {chartMode === 'daily' ? (
+                      loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.textMuted }}>데이터 불러오는 중...</p> : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
+                            <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                            <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
+                            <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
+                            <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={28} />
+                            <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke={theme.danger} strokeWidth={3} dot={{ r: 4 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      )
+                    ) : (
+                      realtimeLoading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.textMuted }}>실시간 15분 데이터 연동 중...</p> : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={realtimeData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
+                            <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
+                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                            <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
+                            <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
+                            <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} />
+                            <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} dot={false} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      )
                     )}
                   </div>
                 </Card>
@@ -323,9 +361,9 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>기상 및 대기질 지표</h4>
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
-                      <button onClick={() => setWeatherTab('temp')} style={getTabStyle('temp')}>기온</button>
-                      <button onClick={() => setWeatherTab('humidity')} style={getTabStyle('humidity')}>습도</button>
-                      <button onClick={() => setWeatherTab('dust')} style={getTabStyle('dust')}>미세먼지</button>
+                      <button onClick={() => setWeatherTab('temp')} style={getTabStyle(weatherTab === 'temp')}>기온</button>
+                      <button onClick={() => setWeatherTab('humidity')} style={getTabStyle(weatherTab === 'humidity')}>습도</button>
+                      <button onClick={() => setWeatherTab('dust')} style={getTabStyle(weatherTab === 'dust')}>미세먼지</button>
                     </div>
                   </div>
                   <div style={{ height: '320px', width: '100%', flex: 1 }}>
@@ -367,7 +405,6 @@ export default function Dashboard() {
                 </Card>
               </div>
 
-              {/* 🌟 15분 단위 상세 표 (15개 열 완벽 1:1 매칭 복구) */}
               <Card style={{ padding: '0', overflow: 'hidden' }}>
                 <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}` }}>
                   <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>종합 데이터 상세 내역 (15분 단위)</h4>
