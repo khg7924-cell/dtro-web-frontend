@@ -399,7 +399,6 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>CO2(tCO2)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>역률(지상)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>역률(진상)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>날씨</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최고기온(°C)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최저기온(°C)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>습도(%)</th>
@@ -409,7 +408,7 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {currentRows.length === 0 ? (
-                        <tr><td colSpan={15} style={{ padding: '40px', color: theme.textMuted }}>데이터가 없습니다. 날짜를 확인해주세요.</td></tr>
+                        <tr><td colSpan={14} style={{ padding: '40px', color: theme.textMuted }}>데이터가 없습니다. 날짜를 확인해주세요.</td></tr>
                       ) : (
                         currentRows.map((row) => (
                           <React.Fragment key={row.date}>
@@ -425,7 +424,6 @@ export default function Dashboard() {
                               <td style={{ padding: '12px', color: theme.textMuted }}>{row.co2}</td>
                               <td style={{ padding: '12px', color: theme.textMuted }}>{row.pfLag}</td>
                               <td style={{ padding: '12px', color: theme.textMuted }}>{row.pfLead}</td>
-                              <td style={{ padding: '12px', fontSize: '14px' }}>{row.weather}</td>
                               <td style={{ padding: '12px', fontWeight: 600 }}>{row.temp_max !== '--' && row.temp_max !== null ? `${row.temp_max}°` : '--'}</td>
                               <td style={{ padding: '12px', fontWeight: 600, color: '#1192E8' }}>{row.temp_min !== '--' && row.temp_min !== null ? `${row.temp_min}°` : '--'}</td>
                               <td style={{ padding: '12px' }}>{row.humidity !== '--' && row.humidity !== null ? `${row.humidity}%` : '--'}</td>
