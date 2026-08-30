@@ -147,15 +147,15 @@ export default function Dashboard() {
       const result = await response.json();
       setCompRecords(result.records || []);
       setCompSummary(result.summary || {});
-
-      const diff = result.summary?.diff || 0;
-      const diffPct = result.summary?.diff_pct || 0;
-      let reportText = `[${station}] ${baseYear}년 대비 ${compYear}년 전력 수요 분석 리포트\n\n`;
-      if (diff > 0) reportText += `▶ 종합 분석: 전년 대비 총 전력량이 ${Math.abs(diffPct)}% 증가(약 ${Math.abs(diff).toLocaleString()} kWh) 하였습니다.\n▶ 기상 요인: 이상 기후로 인한 냉난방 공조 설비 부하 증가가 주요 원인으로 추정됩니다.\n▶ 추가 요인: 영업일(휴일) 수 차이, 열차 운행 스케줄 변동, 승객수 증가 등의 요인이 복합적으로 작용했을 가능성이 있습니다.`;
-      else if (diff < 0) reportText += `▶ 종합 분석: 전년 대비 총 전력량이 ${Math.abs(diffPct)}% 감소(약 ${Math.abs(diff).toLocaleString()} kWh) 하였습니다.\n▶ 기상 요인: 온화한 기후 조건 및 냉난방 설비의 최적화 운영이 전력 절감에 기여한 것으로 추정됩니다.\n▶ 추가 요인: 대기전력 차단, LED 교체 등 에너지 효율화 사업 및 승객수/운행스케줄 변동이 영향을 미쳤을 수 있습니다.`;
-      else reportText += `▶ 종합 분석: 전년 대비 총 전력량의 변화가 거의 없습니다.`;
-      setAiReport(reportText);
-    } catch (error) { console.error(error); } finally { setCompLoading(false); }
+      
+      // 🌟 백엔드 기상 연동 실제 AI 리포트를 화면에 출력
+      setAiReport(result.summary?.ai_report || '리포트 생성 중 오류가 발생했습니다.');
+      
+    } catch (error) { 
+      console.error(error); 
+    } finally { 
+      setCompLoading(false); 
+    }
   };
 
   const runAIPrediction = async () => {
