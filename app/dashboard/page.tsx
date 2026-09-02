@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-const API_URL = 'https://dtro-api.onrender.com'; 
+const API_URL = 'http://127.0.0.1:8000'; // 🚨 로컬 테스트용. 배포 시 Render 주소로 변경하세요!
 
 const theme = {
   bg: '#F8FAFC', surface: '#FFFFFF', primary: '#0F62FE', primarySoft: '#EDF5FF', 
@@ -76,7 +76,7 @@ export default function Dashboard() {
         });
         if (res.ok) {
           setUploadedFile(file);
-          alert(`✅ ${file.name}\n데이터셋이 성공적으로 백엔드에 연동되었습니다.\n이제 비교 분석 및 AI 예측이 가능합니다.`);
+          alert(`✅ ${file.name}\n데이터셋이 성공적으로 백엔드에 연동되었습니다.\n이제 팩트 기반 AI 예측 및 비교가 가능합니다.`);
         } else {
           alert("파일 업로드에 실패했습니다. (서버 응답 오류)");
         }
@@ -106,8 +106,15 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
       const result = await response.json();
-      const records = result.daily_records || [];
       
+      // 🌟 [추가됨] 백엔드에서 보낸 '탐지된 전력량 리스트' 에러를 팝업으로 띄워줌
+      if (result.error) {
+        alert(result.error);
+        setLoading(false);
+        return;
+      }
+
+      const records = result.daily_records || [];
       const reversedRecords = [...records].reverse(); 
       setRawRecords(reversedRecords);
       setMappedLocation(result.mapped_location || '대구 전체');
@@ -128,7 +135,6 @@ export default function Dashboard() {
         const monthlyData = Object.keys(monthMap).map((mKey) => {
           const group = monthMap[mKey];
           const count = group.length;
-
           const validTMax = group.filter(r => r.temp_max !== '--' && r.temp_max !== null);
           const validTMin = group.filter(r => r.temp_min !== '--' && r.temp_min !== null);
           const validHum = group.filter(r => r.humidity !== '--' && r.humidity !== null);
@@ -140,7 +146,6 @@ export default function Dashboard() {
             temp_max: validTMax.length > 0 ? Number((validTMax.reduce((acc, cur) => acc + Number(cur.temp_max), 0) / validTMax.length).toFixed(1)) : null,
             temp_min: validTMin.length > 0 ? Number((validTMin.reduce((acc, cur) => acc + Number(cur.temp_min), 0) / validTMin.length).toFixed(1)) : null,
             humidity: validHum.length > 0 ? Number((validHum.reduce((acc, cur) => acc + Number(cur.humidity), 0) / validHum.length).toFixed(1)) : null,
-            pm10: Number((group.reduce((acc, cur) => acc + cur.pm10, 0) / count).toFixed(1)),
             pm25: Number((group.reduce((acc, cur) => acc + cur.pm25, 0) / count).toFixed(1)),
           };
         });
@@ -157,6 +162,14 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_URL}/api/realtime/${encodeURIComponent(station)}`);
       const result = await response.json();
+      
+      // 🌟 [추가됨] 실시간 탭에서도 에러 팝업 표시
+      if (result.error) {
+        alert(result.error);
+        setRealtimeLoading(false);
+        return;
+      }
+
       setRealtimeData(result.records || []);
     } catch (error) { console.error(error); } finally { setRealtimeLoading(false); }
   };
@@ -166,22 +179,11 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
       const result = await response.json();
-      
-      if (result.error) {
-        alert(result.error);
-        setCompLoading(false);
-        return;
-      }
-      
+      if (result.error) { alert(result.error); setCompLoading(false); return; }
       setCompRecords(result.records || []);
       setCompSummary(result.summary || {});
       setAiReport(result.summary?.ai_report || '리포트 생성 중 오류가 발생했습니다.');
-    } catch (error) { 
-      console.error(error); 
-      alert('비교 분석 서버와 통신할 수 없습니다.');
-    } finally { 
-      setCompLoading(false); 
-    }
+    } catch (error) { console.error(error); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
   };
 
   const runAIPrediction = async () => {
@@ -197,15 +199,15 @@ export default function Dashboard() {
 
   const handleExportExcel = () => {
     if (rawRecords.length === 0) { alert("다운로드할 데이터가 없습니다."); return; }
-    let csvContent = "\uFEFF항목(일자/시간),사용량(kWh),최대수요(kW),무효(지상),무효(진상),CO2(tCO2),역률(지상),역률(진상),최고기온(°C),최저기온(°C),습도(%),PM10,PM2.5\n";
+    let csvContent = "\uFEFF항목(일자/시간),사용량(kWh),최대수요(kW),무효(지상),무효(진상),CO2(tCO2),역률(지상),역률(진상),최고기온(°C),최저기온(°C),습도(%),PM2.5\n";
     rawRecords.forEach(row => {
-      csvContent += `${row.date},${row.usage_kwh},${row.peak_kw},${row.varLag},${row.varLead},${row.co2},${row.pfLag},${row.pfLead},${row.temp_max},${row.temp_min},${row.humidity},${row.pm10},${row.pm25}\n`;
+      csvContent += `${row.date},${row.usage_kwh},${row.peak_kw},${row.varLag},${row.varLead},${row.co2},${row.pfLag},${row.pfLead},${row.temp_max},${row.temp_min},${row.humidity},${row.pm25}\n`;
       if (row.details) {
         row.details.forEach((d: any) => {
           const varLag = (d.usage_kwh * 0.1).toFixed(1);
           const varLead = (d.usage_kwh * 0.02).toFixed(1);
           const co2 = (d.usage_kwh * 0.466 / 1000).toFixed(3);
-          csvContent += `${row.date} ${d.time},${d.usage_kwh},${d.peak_kw},${varLag},${varLead},${co2},-,-,-,-,-,-,-\n`;
+          csvContent += `${row.date} ${d.time},${d.usage_kwh},${d.peak_kw},${varLag},${varLead},${co2},-,-,-,-,-,-\n`;
         });
       }
     });
@@ -267,8 +269,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}>
-      
-      {/* 1. GNB */}
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>데이터센터 프로</span></h1>
@@ -282,8 +282,6 @@ export default function Dashboard() {
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
-        {/* 2. LNB */}
         <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
           <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -310,10 +308,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 3. Main Content */}
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
-          
-          {/* ===================== [1. 통합 대시보드 탭] ===================== */}
           {mainTab === 'dashboard' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
@@ -391,7 +386,7 @@ export default function Dashboard() {
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
                       <button onClick={() => setWeatherTab('temp')} style={getTabStyle(weatherTab === 'temp')}>기온</button>
                       <button onClick={() => setWeatherTab('humidity')} style={getTabStyle(weatherTab === 'humidity')}>습도</button>
-                      <button onClick={() => setWeatherTab('dust')} style={getTabStyle(weatherTab === 'dust')}>미세먼지</button>
+                      <button onClick={() => setWeatherTab('dust')} style={getTabStyle(weatherTab === 'dust')}>초미세먼지</button>
                     </div>
                   </div>
                   <div style={{ height: '320px', width: '100%', flex: 1 }}>
@@ -423,8 +418,7 @@ export default function Dashboard() {
                             <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                             <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px' }} iconType="circle" />
-                            <Line type="monotone" dataKey="pm10" name="PM10" stroke="#8A3FFC" strokeWidth={3} dot={{ r: 4 }} />
-                            <Line type="monotone" dataKey="pm25" name="PM2.5" stroke="#FA4D56" strokeWidth={3} dot={{ r: 4 }} />
+                            <Line type="monotone" dataKey="pm25" name="초미세먼지(PM2.5)" stroke="#FA4D56" strokeWidth={3} dot={{ r: 4 }} />
                           </LineChart>
                         )}
                       </ResponsiveContainer>
@@ -454,13 +448,12 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최고기온(°C)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최저기온(°C)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>습도(%)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>PM10</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>PM2.5</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>초미세먼지(PM2.5)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentRows.length === 0 ? (
-                        <tr><td colSpan={14} style={{ padding: '40px', color: theme.textMuted }}>데이터가 없습니다. 날짜를 확인해주세요.</td></tr>
+                        <tr><td colSpan={13} style={{ padding: '40px', color: theme.textMuted }}>데이터가 없습니다. 날짜를 확인해주세요.</td></tr>
                       ) : (
                         currentRows.map((row) => (
                           <React.Fragment key={row.date}>
@@ -479,7 +472,6 @@ export default function Dashboard() {
                               <td style={{ padding: '12px', fontWeight: 600 }}>{row.temp_max !== '--' && row.temp_max !== null ? `${row.temp_max}°` : '--'}</td>
                               <td style={{ padding: '12px', fontWeight: 600, color: '#1192E8' }}>{row.temp_min !== '--' && row.temp_min !== null ? `${row.temp_min}°` : '--'}</td>
                               <td style={{ padding: '12px' }}>{row.humidity !== '--' && row.humidity !== null ? `${row.humidity}%` : '--'}</td>
-                              <td style={{ padding: '12px' }}>{row.pm10}</td>
                               <td style={{ padding: '12px' }}>{row.pm25}</td>
                             </tr>
                             
@@ -492,7 +484,6 @@ export default function Dashboard() {
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>{(d.usage_kwh * 0.1).toFixed(1)}</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>{(d.usage_kwh * 0.02).toFixed(1)}</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>{(d.usage_kwh * 0.466 / 1000).toFixed(3)}</td>
-                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
@@ -543,7 +534,7 @@ export default function Dashboard() {
                   
                   <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
                   <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 미세먼지/승객수/전력량 통합 데이터셋 업로드'}
+                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 초미세먼지/승객수/전력량 통합 데이터셋 업로드'}
                   </button>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.surface, padding: '6px 16px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
@@ -584,7 +575,6 @@ export default function Dashboard() {
                       <BarChart data={compRecords} margin={{ top: 5, right: 0, left: 10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                         <XAxis dataKey="month" tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} dy={10} />
-                        {/* 🌟 MWh 변환 및 라벨 포맷 적용 */}
                         <YAxis tickFormatter={(val) => (val / 1000).toLocaleString()} tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} />
                         <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val, name) => [`${(Number(val) / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MWh`, name]} />
                         <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
@@ -667,7 +657,7 @@ export default function Dashboard() {
                   
                   <input type="file" accept=".csv, .xlsx" id="predict-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
                   <button onClick={() => document.getElementById('predict-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 미세먼지/승객수/전력량 통합 데이터셋 업로드'}
+                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 초미세먼지/승객수/전력량 통합 데이터셋 업로드'}
                   </button>
 
                   <button onClick={runAIPrediction} disabled={predLoading} style={{ padding: '10px 24px', backgroundColor: theme.ai, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', opacity: predLoading ? 0.7 : 1 }}>
@@ -689,7 +679,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* 🌟 수정 완료: 예상 총 전력량을 가장 크게 보여주고, 직전 연도 대비 증감량은 하단에 작게 배치 */}
               {predSummary && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                   <StatCard 
@@ -731,7 +720,6 @@ export default function Dashboard() {
                         <LineChart data={predChartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                           <XAxis dataKey="month" tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} dy={10} />
-                          {/* 🌟 MWh 변환 적용 */}
                           <YAxis tickFormatter={(val) => (val / 1000).toLocaleString()} tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} />
                           <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val, name) => [`${(Number(val) / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MWh`, name]} />
                           <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px' }} />
@@ -746,7 +734,6 @@ export default function Dashboard() {
                     <h4 style={{ margin: '0 0 24px 0', color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>예측 변수 중요도</h4>
                     <div style={{ height: '350px', width: '100%' }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        {/* 🌟 수정 완료: left 마진 70으로 대폭 확장하여 Y축 글씨 잘림 완벽 해결 */}
                         <BarChart layout="vertical" data={featChartData} margin={{ top: 5, right: 30, left: 70, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.border} />
                           <XAxis type="number" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -767,7 +754,6 @@ export default function Dashboard() {
               )}
             </div>
           )}
-
         </div>
       </div>
     </div>
