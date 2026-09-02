@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-const API_URL = 'http://127.0.0.1:8000'; // 🚨 로컬 테스트용. 배포 시 Render 주소로 변경하세요!
+const API_URL = 'https://dtro-api.onrender.com'; // 🚨 로컬 테스트용. 배포 시 Render 주소로 변경하세요!
 
 const theme = {
   bg: '#F8FAFC', surface: '#FFFFFF', primary: '#0F62FE', primarySoft: '#EDF5FF', 
