@@ -1,18 +1,25 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-const API_URL = 'https://dtro-api.onrender.com'; // 🚨 로컬 테스트용. 배포 시 Render 주소로 변경하세요!
+const API_URL = 'https://dtro-api.onrender.com'; // 🚨 로컬 테스트 완료 후 실 서버 배포 시 도메인 변경하세요!
 
 const theme = {
   bg: '#F8FAFC', surface: '#FFFFFF', primary: '#0F62FE', primarySoft: '#EDF5FF', 
   secondary: '#8A3FFC', ai: '#E83E8C', success: '#198038', danger: '#DA1E28', 
   textMain: '#111827', textMuted: '#64748B', border: '#E2E8F0', shadow: '0 4px 24px rgba(0, 0, 0, 0.04)', radius: '16px',         
+};
+
+const getLocalISODate = (d: Date) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export default function Dashboard() {
@@ -35,13 +42,20 @@ export default function Dashboard() {
   const [realtimeData, setRealtimeData] = useState<any[]>([]);
   const [realtimeLoading, setRealtimeLoading] = useState(false);
   
+  const maxDate = getLocalISODate(new Date());
+  const minDate = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return getLocalISODate(d);
+  })();
+
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
-    return d.toISOString().split('T')[0];
+    return getLocalISODate(d);
   });
   const [endDate, setEndDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
+    return getLocalISODate(d);
   });
   const [weatherTab, setWeatherTab] = useState('temp');
 
@@ -62,6 +76,11 @@ export default function Dashboard() {
   const [predSummary, setPredSummary] = useState<any>(null);
   const [predChartData, setPredChartData] = useState<any[]>([]);
   const [featChartData, setFeatChartData] = useState<any[]>([]);
+
+  const [billYear, setBillYear] = useState('2026');
+  const [billRecords, setBillRecords] = useState<any[]>([]);
+  const [billLoading, setBillLoading] = useState(false);
+  const [billCustNo, setBillCustNo] = useState('');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -88,7 +107,7 @@ export default function Dashboard() {
   };
 
   const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({
-    '전체': true, '1호선': true, '2호선': false, '3호선': false,
+    '전체': true, '1호선': false, '2호선': false, '3호선': false,
   });
 
   const stationsData: { [key: string]: string[] } = {
@@ -107,7 +126,6 @@ export default function Dashboard() {
       const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
       const result = await response.json();
       
-      // 🌟 [추가됨] 백엔드에서 보낸 '탐지된 전력량 리스트' 에러를 팝업으로 띄워줌
       if (result.error) {
         alert(result.error);
         setLoading(false);
@@ -146,7 +164,7 @@ export default function Dashboard() {
             temp_max: validTMax.length > 0 ? Number((validTMax.reduce((acc, cur) => acc + Number(cur.temp_max), 0) / validTMax.length).toFixed(1)) : null,
             temp_min: validTMin.length > 0 ? Number((validTMin.reduce((acc, cur) => acc + Number(cur.temp_min), 0) / validTMin.length).toFixed(1)) : null,
             humidity: validHum.length > 0 ? Number((validHum.reduce((acc, cur) => acc + Number(cur.humidity), 0) / validHum.length).toFixed(1)) : null,
-            pm25: Number((group.reduce((acc, cur) => acc + cur.pm25, 0) / count).toFixed(1)),
+            pm25: Number((group.reduce((acc, cur) => acc + (Number(cur.pm25) || 0), 0) / count).toFixed(1)),
           };
         });
         setChartData(monthlyData);
@@ -163,7 +181,6 @@ export default function Dashboard() {
       const response = await fetch(`${API_URL}/api/realtime/${encodeURIComponent(station)}`);
       const result = await response.json();
       
-      // 🌟 [추가됨] 실시간 탭에서도 에러 팝업 표시
       if (result.error) {
         alert(result.error);
         setRealtimeLoading(false);
@@ -189,6 +206,10 @@ export default function Dashboard() {
   const runAIPrediction = async () => {
     if (!uploadedFile) { alert("상단에서 통합 데이터셋(Excel) 파일을 먼저 업로드해 주세요."); return; }
     setPredLoading(true);
+    setPredSummary(null);
+    setPredChartData([]);
+    setFeatChartData([]);
+
     try {
       const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}`);
       const result = await response.json();
@@ -197,17 +218,42 @@ export default function Dashboard() {
     } catch (error) { alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
   };
 
+  const fetchBillData = async () => {
+    let targetStation = station;
+    if (stationsData['1호선'].includes(station)) {
+      targetStation = '1호선';
+      setStation('1호선');
+    }
+    
+    setBillLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/bill/${encodeURIComponent(targetStation)}?year=${billYear}`);
+      const result = await response.json();
+      if (result.error) {
+        alert(result.error);
+        setBillRecords([]);
+        setBillLoading(false);
+        return;
+      }
+      setBillRecords(result.records || []);
+      setBillCustNo(result.cust_no || '');
+    } catch(e) {
+      console.error(e);
+      alert("전기요금 서버 통신 에러");
+    } finally {
+      setBillLoading(false);
+    }
+  };
+
   const handleExportExcel = () => {
     if (rawRecords.length === 0) { alert("다운로드할 데이터가 없습니다."); return; }
-    let csvContent = "\uFEFF항목(일자/시간),사용량(kWh),최대수요(kW),무효(지상),무효(진상),CO2(tCO2),역률(지상),역률(진상),최고기온(°C),최저기온(°C),습도(%),PM2.5\n";
+    let csvContent = "\uFEFF항목(일자/시간),사용량(kWh),최대수요(kW),CO2(tCO2),최고기온(°C),최저기온(°C),습도(%),PM2.5\n";
     rawRecords.forEach(row => {
-      csvContent += `${row.date},${row.usage_kwh},${row.peak_kw},${row.varLag},${row.varLead},${row.co2},${row.pfLag},${row.pfLead},${row.temp_max},${row.temp_min},${row.humidity},${row.pm25}\n`;
+      csvContent += `${row.date},${row.usage_kwh},${row.peak_kw},${row.co2},${row.temp_max},${row.temp_min},${row.humidity},${row.pm25}\n`;
       if (row.details) {
         row.details.forEach((d: any) => {
-          const varLag = (d.usage_kwh * 0.1).toFixed(1);
-          const varLead = (d.usage_kwh * 0.02).toFixed(1);
           const co2 = (d.usage_kwh * 0.466 / 1000).toFixed(3);
-          csvContent += `${row.date} ${d.time},${d.usage_kwh},${d.peak_kw},${varLag},${varLead},${co2},-,-,-,-,-,-\n`;
+          csvContent += `${row.date} ${d.time},${d.usage_kwh},${d.peak_kw},${co2},-,-,-,-\n`;
         });
       }
     });
@@ -229,12 +275,18 @@ export default function Dashboard() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  useEffect(() => {
-    if (mainTab === 'dashboard') {
-      if (chartMode === 'daily') fetchDashboardData();
-      else fetchRealtimeData();
-    } else if (mainTab === 'compare') fetchCompareData();
-  }, [station, mainTab, chartMode]);
+  const handleExportBillExcel = () => {
+    if (billRecords.length === 0) { alert("다운로드할 요금 데이터가 없습니다."); return; }
+    let csvContent = "\uFEFF청구년월,정기검침일,요금적용전력(kW),기본요금(원),전력량요금(원),할인공제계(원),전기요금계(원),청구요금(원),경부하사용량(kWh),중부하사용량(kWh),최대부하사용량(kWh),지상역률(%),진상역률(%)\n";
+    billRecords.forEach(row => {
+      csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.mload_usekwh},${row.maxload_usekwh},${row.ji_pwrfact},${row.jn_pwrfact}\n`;
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `${station}_${billYear}년_전기요금청구내역.csv`);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
 
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
@@ -276,6 +328,7 @@ export default function Dashboard() {
             <button onClick={() => setMainTab('dashboard')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'dashboard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'dashboard' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>⚡ 통합 대시보드</button>
             <button onClick={() => setMainTab('compare')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'compare' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'compare' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>📊 연도별 비교</button>
             <button onClick={() => setMainTab('predict')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'predict' ? 'rgba(232, 62, 140, 0.15)' : 'transparent', color: mainTab === 'predict' ? theme.ai : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🤖 AI 수요 예측</button>
+            <button onClick={() => setMainTab('bill')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'bill' ? 'rgba(25, 128, 56, 0.15)' : 'transparent', color: mainTab === 'bill' ? theme.success : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🧾 전기요금</button>
           </div>
         </div>
         <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
@@ -291,17 +344,23 @@ export default function Dashboard() {
             </button>
             {openMenus['전체'] && (
               <div style={{ paddingLeft: '6px', marginTop: '4px', borderLeft: `2px solid ${theme.border}`, marginLeft: '16px', marginBottom: '8px' }}>
-                {['1호선', '2호선', '3호선'].map((line) => (
-                  <div key={line}>
-                    <button onClick={() => { toggleMenu(line); setStation(line); }} style={getBtnStyle(line)}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🚆 {line}</span>
-                      <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus[line] ? '▼' : '▶'}</span>
-                    </button>
-                    {openMenus[line] && stationsData[line].map((sub) => (
-                      <button key={sub} onClick={() => setStation(sub)} style={getBtnStyle(sub, true)}>• {sub}</button>
-                    ))}
-                  </div>
-                ))}
+                {['1호선', '2호선', '3호선'].map((line) => {
+                  const isBillLine1 = mainTab === 'bill' && line === '1호선';
+                  const subStations = isBillLine1 ? [] : stationsData[line];
+                  const hasSubs = subStations.length > 0;
+                  
+                  return (
+                    <div key={line}>
+                      <button onClick={() => { if (hasSubs) toggleMenu(line); setStation(line); }} style={getBtnStyle(line)}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🚆 {line}</span>
+                        {hasSubs && <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus[line] ? '▼' : '▶'}</span>}
+                      </button>
+                      {hasSubs && openMenus[line] && subStations.map((sub) => (
+                        <button key={sub} onClick={() => setStation(sub)} style={getBtnStyle(sub, true)}>• {sub}</button>
+                      ))}
+                    </div>
+                  );
+                })}
                 <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span></button>
               </div>
             )}
@@ -309,6 +368,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+          {/* ===================== [1. 통합 대시보드 탭] ===================== */}
           {mainTab === 'dashboard' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
@@ -318,22 +378,26 @@ export default function Dashboard() {
                     <span style={{ fontSize: '1rem' }}>📍</span> 연동: {mappedLocation}
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
-                    <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
-                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
-                    <span style={{ color: theme.border }}>|</span>
-                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
+                
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                      <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
+                      <input type="date" min={minDate} max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
+                      <span style={{ color: theme.border }}>|</span>
+                      <input type="date" min={minDate} max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
+                    </div>
+                    <button onClick={() => { fetchDashboardData(); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
+                    <button onClick={handleExportExcel} style={{ padding: '10px 20px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
                   </div>
-                  <button onClick={fetchDashboardData} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
-                  <button onClick={handleExportExcel} style={{ padding: '10px 20px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
+                  <span style={{ fontSize: '11.5px', color: theme.danger, fontWeight: 700, letterSpacing: '-0.5px' }}>※ 통합 대시보드는 최근 3개월까지만 조회 가능하며, 한전 전력량은 2026년 9월 4일 이후부터 표출됩니다.</span>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
-                <StatCard title="누적 전력 사용량" value={summary.total_usage?.toLocaleString() || 0} unit="kWh" topColor={theme.primary} />
-                <StatCard title="최대 수요 전력 (Peak)" value={summary.max_peak?.toLocaleString() || 0} unit="kW" topColor={theme.danger} />
-                <StatCard title="총 예상 탄소배출량" value={summary.total_co2?.toLocaleString() || 0} unit="tCO2" topColor={theme.success} />
+                <StatCard title="누적 전력 사용량" value={loading ? '...' : (summary.total_usage?.toLocaleString() || 0)} unit="kWh" topColor={theme.primary} />
+                <StatCard title="최대 수요 전력 (Peak)" value={loading ? '...' : (summary.max_peak?.toLocaleString() || 0)} unit="kW" topColor={theme.danger} />
+                <StatCard title="총 예상 탄소배출량" value={loading ? '...' : (summary.total_co2?.toLocaleString() || 0)} unit="tCO2" topColor={theme.success} />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '32px' }}>
@@ -341,13 +405,13 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
-                      <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
-                      <button onClick={() => setChartMode('realtime')} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
+                      <button onClick={() => { setChartMode('daily'); fetchDashboardData(); }} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
+                      <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
                     </div>
                   </div>
                   <div style={{ height: '320px', width: '100%' }}>
                     {chartMode === 'daily' ? (
-                      loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.textMuted }}>데이터 불러오는 중...</p> : (
+                      loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                         <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
@@ -362,20 +426,42 @@ export default function Dashboard() {
                         </ResponsiveContainer>
                       )
                     ) : (
-                      realtimeLoading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.textMuted }}>실시간 15분 데이터 연동 중...</p> : (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={realtimeData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                            <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                            <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                            <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
-                            <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} />
-                            <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} dot={false} />
-                          </ComposedChart>
-                        </ResponsiveContainer>
-                      )
+                      realtimeLoading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>실시간 15분 데이터 연동 중... ⏳</p> : (() => {
+                        const currentRealtimeMaxPeak = realtimeData.reduce((max, d) => (d.peak_kw !== null && d.peak_kw > max) ? d.peak_kw : max, -1);
+                        const currentMaxPeakTime = realtimeData.find(d => d.peak_kw === currentRealtimeMaxPeak && d.peak_kw !== null)?.time;
+                        
+                        return (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={realtimeData} margin={{ top: 15, right: 0, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
+                              <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
+                              <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                              <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                              <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
+                              <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
+                              <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} />
+                              <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} dot={(props: any) => {
+                                const { cx, cy, payload } = props;
+                                if (payload.peak_kw !== null && payload.peak_kw === currentRealtimeMaxPeak && payload.time === currentMaxPeakTime && currentRealtimeMaxPeak > 0) {
+                                  return (
+                                    <g key={`peak-dot-${payload.time}`}>
+                                      <circle cx={cx} cy={cy} r={8} fill="#FA4D56">
+                                        <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
+                                      </circle>
+                                      <circle cx={cx} cy={cy} r={4} fill="#FFF" />
+                                      {/* 🌟 텍스트를 우측 상단으로 이동하고 왼쪽 정렬(start) 적용 */}
+                                      <text x={cx + 12} y={cy - 12} textAnchor="start" fill="#DA1E28" fontSize="13px" fontWeight="800">
+                                        {payload.peak_kw.toLocaleString()} kW
+                                      </text>
+                                    </g>
+                                  );
+                                }
+                                return null;
+                              }} />
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        );
+                      })()
                     )}
                   </div>
                 </Card>
@@ -390,7 +476,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div style={{ height: '320px', width: '100%', flex: 1 }}>
-                    {loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.textMuted }}>데이터 불러오는 중...</p> : (
+                    {loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                       <ResponsiveContainer width="100%" height="100%">
                         {weatherTab === 'temp' ? (
                           <LineChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
@@ -440,11 +526,7 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>항목(일자/시간)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>사용량(kWh)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최대수요(kW)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>무효(지상)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>무효(진상)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>CO2(tCO2)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>역률(지상)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>역률(진상)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최고기온(°C)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최저기온(°C)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>습도(%)</th>
@@ -452,8 +534,10 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentRows.length === 0 ? (
-                        <tr><td colSpan={13} style={{ padding: '40px', color: theme.textMuted }}>데이터가 없습니다. 날짜를 확인해주세요.</td></tr>
+                      {loading ? (
+                        <tr><td colSpan={9} style={{ padding: '60px', color: theme.primary, fontWeight: 700, fontSize: '15px' }}>서버에서 데이터를 갱신하고 있습니다... ⏳</td></tr>
+                      ) : currentRows.length === 0 ? (
+                        <tr><td colSpan={9} style={{ padding: '40px', color: theme.textMuted }}>데이터가 없습니다. 개소를 선택 후 조회를 실행해주세요.</td></tr>
                       ) : (
                         currentRows.map((row) => (
                           <React.Fragment key={row.date}>
@@ -464,11 +548,7 @@ export default function Dashboard() {
                               <td style={{ padding: '12px', fontWeight: 700 }}>📁 {row.date}</td>
                               <td style={{ padding: '12px', color: theme.primary, fontWeight: 700 }}>{row.usage_kwh.toLocaleString()}</td>
                               <td style={{ padding: '12px', color: theme.danger, fontWeight: 600 }}>{row.peak_kw.toLocaleString()}</td>
-                              <td style={{ padding: '12px', color: theme.textMuted }}>{row.varLag}</td>
-                              <td style={{ padding: '12px', color: theme.textMuted }}>{row.varLead}</td>
                               <td style={{ padding: '12px', color: theme.textMuted }}>{row.co2}</td>
-                              <td style={{ padding: '12px', color: theme.textMuted }}>{row.pfLag}</td>
-                              <td style={{ padding: '12px', color: theme.textMuted }}>{row.pfLead}</td>
                               <td style={{ padding: '12px', fontWeight: 600 }}>{row.temp_max !== '--' && row.temp_max !== null ? `${row.temp_max}°` : '--'}</td>
                               <td style={{ padding: '12px', fontWeight: 600, color: '#1192E8' }}>{row.temp_min !== '--' && row.temp_min !== null ? `${row.temp_min}°` : '--'}</td>
                               <td style={{ padding: '12px' }}>{row.humidity !== '--' && row.humidity !== null ? `${row.humidity}%` : '--'}</td>
@@ -481,11 +561,7 @@ export default function Dashboard() {
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>↳ {d.time}</td>
                                 <td style={{ padding: '8px 12px', color: theme.primary, fontWeight: 700, fontSize: '13px' }}>{d.usage_kwh.toLocaleString()}</td>
                                 <td style={{ padding: '8px 12px', color: theme.danger, fontWeight: 600, fontSize: '13px' }}>{d.peak_kw.toLocaleString()}</td>
-                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>{(d.usage_kwh * 0.1).toFixed(1)}</td>
-                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>{(d.usage_kwh * 0.02).toFixed(1)}</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>{(d.usage_kwh * 0.466 / 1000).toFixed(3)}</td>
-                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
-                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
                                 <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
@@ -559,9 +635,9 @@ export default function Dashboard() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
-                <StatCard title={`${compYear}년 총 사용량`} value={compSummary.total_comp?.toLocaleString() || 0} unit="kWh" subtitle={`${baseYear}년(기준): ${compSummary.total_base?.toLocaleString() || 0} kWh`} topColor={theme.secondary} />
-                <StatCard title="전력량 증감" value={`${compSummary.diff > 0 ? '+' : ''}${compSummary.diff?.toLocaleString() || 0}`} unit="kWh" subtitle={`전년 대비 ${compSummary.diff_pct > 0 ? '+' : ''}${compSummary.diff_pct || 0}%`} subtitleColor={compSummary.diff > 0 ? theme.danger : theme.success} topColor={compSummary.diff > 0 ? theme.danger : theme.success} />
-                <StatCard title="예상 전기요금 증감액" value={`${compSummary.cost > 0 ? '+' : ''}${compSummary.cost?.toLocaleString() || 0}`} unit="원" subtitle={compSummary.cost > 0 ? '요금 상승 추정' : '요금 절감 추정'} subtitleColor={compSummary.cost > 0 ? theme.danger : theme.success} topColor={compSummary.cost > 0 ? theme.danger : theme.success} />
+                <StatCard title={`${compYear}년 총 사용량`} value={compLoading ? '...' : (compSummary.total_comp?.toLocaleString() || 0)} unit="kWh" subtitle={compLoading ? '...' : `${baseYear}년(기준): ${compSummary.total_base?.toLocaleString() || 0} kWh`} topColor={theme.secondary} />
+                <StatCard title="전력량 증감" value={compLoading ? '...' : `${compSummary.diff > 0 ? '+' : ''}${compSummary.diff?.toLocaleString() || 0}`} unit="kWh" subtitle={compLoading ? '...' : `전년 대비 ${compSummary.diff_pct > 0 ? '+' : ''}${compSummary.diff_pct || 0}%`} subtitleColor={compSummary.diff > 0 ? theme.danger : theme.success} topColor={compSummary.diff > 0 ? theme.danger : theme.success} />
+                <StatCard title="예상 전기요금 증감액" value={compLoading ? '...' : `${compSummary.cost > 0 ? '+' : ''}${compSummary.cost?.toLocaleString() || 0}`} unit="원" subtitle={compLoading ? '...' : (compSummary.cost > 0 ? '요금 상승 추정' : '요금 절감 추정')} subtitleColor={compSummary.cost > 0 ? theme.danger : theme.success} topColor={compSummary.cost > 0 ? theme.danger : theme.success} />
               </div>
 
               <Card style={{ marginBottom: '32px' }}>
@@ -570,7 +646,7 @@ export default function Dashboard() {
                   <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>(단위: MWh)</span>
                 </div>
                 <div style={{ height: '380px', width: '100%' }}>
-                  {compLoading ? <p style={{ textAlign: 'center', paddingTop: '150px', color: theme.textMuted }}>데이터 분석 중...</p> : (
+                  {compLoading ? <p style={{ textAlign: 'center', paddingTop: '150px', color: theme.secondary, fontWeight: 700 }}>데이터 분석 중... ⏳</p> : (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={compRecords} margin={{ top: 5, right: 0, left: 10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
@@ -603,8 +679,10 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {compRecords.length === 0 ? (
-                        <tr><td colSpan={6} style={{ padding: '40px', color: theme.textMuted }}>상단에서 비교 분석을 실행해 주세요.</td></tr>
+                      {compLoading ? (
+                        <tr><td colSpan={6} style={{ padding: '60px', color: theme.secondary, fontWeight: 700, fontSize: '15px' }}>과거 데이터와 비교 연산을 수행하고 있습니다... ⏳</td></tr>
+                      ) : compRecords.length === 0 ? (
+                        <tr><td colSpan={6} style={{ padding: '40px', color: theme.textMuted }}>개소를 선택 후 비교 분석을 실행해 주세요.</td></tr>
                       ) : (
                         compRecords.map((row, idx) => (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
@@ -628,7 +706,7 @@ export default function Dashboard() {
                 </div>
                 <div style={{ padding: '24px', backgroundColor: '#FFFFFF' }}>
                   {compLoading ? (
-                    <p style={{ color: theme.textMuted, fontWeight: 500 }}>AI가 데이터를 분석하고 있습니다...</p>
+                    <p style={{ color: theme.secondary, fontWeight: 700 }}>AI가 데이터를 분석하고 있습니다... ⏳</p>
                   ) : aiReport ? (
                     <>
                       <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: theme.textMain, fontSize: '15px', lineHeight: '1.7', margin: 0, fontWeight: 500 }}>{aiReport}</pre>
@@ -679,7 +757,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {predSummary && (
+              {predSummary && !predLoading && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                   <StatCard 
                     title="예상 연간 총 전력량" 
@@ -708,11 +786,17 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {predChartData.length > 0 ? (
+              {predLoading ? (
+                <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '80px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
+                  <span style={{ fontSize: '3rem' }}>⏳</span>
+                  <h3 style={{ color: theme.ai, marginTop: '16px', marginBottom: '8px' }}>AI가 수십만 건의 데이터를 학습하여 예측 중입니다...</h3>
+                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>잠시만 기다려주세요.</p>
+                </div>
+              ) : predChartData.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
                   <Card>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
-                      <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>{targetYear}년 월별 전력 수요 예측 추이</h4>
+                      <h4 style={{ margin: '0 0 24px 0', color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>{targetYear}년 월별 전력 수요 예측 추이</h4>
                       <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>(단위: MWh)</span>
                     </div>
                     <div style={{ height: '350px', width: '100%' }}>
@@ -749,11 +833,89 @@ export default function Dashboard() {
                 <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '80px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
                   <span style={{ fontSize: '3rem' }}>📁</span>
                   <h3 style={{ color: theme.textMain, marginTop: '16px', marginBottom: '8px' }}>데이터를 기다리고 있습니다</h3>
-                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>과거 데이터셋(CSV/Excel)을 업로드하고 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
+                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>과거 데이터셋(CSV/Excel)을 업로드하고 개소 선택 후 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
                 </div>
               )}
             </div>
           )}
+
+          {/* ===================== [4. 전기요금 탭] ===================== */}
+          {mainTab === 'bill' && (
+            <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
+                <div>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 전기요금 청구 내역</h2>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#F3F4F6', color: theme.textMain, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
+                    <span style={{ fontSize: '1rem' }}>🧾</span> 한전 고객번호: {billCustNo || '조회 전'} 
+                    {station === '1호선' && <span style={{ color: theme.danger, marginLeft: '8px' }}>(※ 1호선은 전 역사 모수용 통합 청구 기준)</span>}
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                    <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>조회 연도</span>
+                    <input type="text" value={billYear} onChange={(e) => setBillYear(e.target.value)} style={{ width: '50px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
+                  </div>
+                  <button onClick={fetchBillData} style={{ padding: '10px 20px', backgroundColor: theme.success, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>요금 조회</button>
+                  <button onClick={handleExportBillExcel} style={{ padding: '10px 20px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 엑셀 다운로드</button>
+                </div>
+              </div>
+
+              <Card style={{ padding: '0', overflow: 'hidden' }}>
+                <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}` }}>
+                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 상세 요금 청구서 ({billYear}년)</h4>
+                </div>
+                
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                    <thead style={{ backgroundColor: '#F8FAFC', color: theme.textMuted }}>
+                      <tr>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>청구년월</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>검침일</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>적용전력(kW)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>기본요금(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>전력량요금(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>할인공제(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>요금계(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, backgroundColor: '#EFF6FF', color: theme.primary }}>청구요금(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>경부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>중부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>지상역률(%)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billLoading ? (
+                        <tr><td colSpan={13} style={{ padding: '60px', color: theme.success, fontWeight: 700, fontSize: '15px' }}>한전 서버에서 청구 데이터를 수집 중입니다... ⏳</td></tr>
+                      ) : billRecords.length === 0 ? (
+                        <tr><td colSpan={13} style={{ padding: '60px', color: theme.textMuted }}>조회된 전기요금 청구 내역이 없습니다. (조회 연도와 대상 개소를 확인해주세요)</td></tr>
+                      ) : (
+                        billRecords.map((row: any, idx: number) => (
+                          <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: '#FFF' }}>
+                            <td style={{ padding: '12px', fontWeight: 700 }}>{row.bill_ym?.replace(/(\d{4})(\d{2})/, '$1-$2')}</td>
+                            <td style={{ padding: '12px' }}>{row.mr_ymd}일</td>
+                            <td style={{ padding: '12px' }}>{Number(row.bill_aply_pwr || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>{Number(row.base_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>{Number(row.kwh_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.success }}>{Number(row.dc_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>{Number(row.req_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', fontWeight: 800, color: theme.primary, backgroundColor: '#FAFAFA' }}>{Number(row.req_amt || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMuted }}>{Number(row.lload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMuted }}>{Number(row.mload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMuted }}>{Number(row.maxload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>{row.ji_pwrfact}</td>
+                            <td style={{ padding: '12px' }}>{row.jn_pwrfact}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
