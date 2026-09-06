@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-const API_URL = 'https://dtro-api.onrender.com'; // 🚨 로컬 테스트 완료 후 실 서버 배포 시 도메인 변경하세요!
+const API_URL = 'https://dtro-api.onrender.com'; 
 
 const theme = {
   bg: '#F8FAFC', surface: '#FFFFFF', primary: '#0F62FE', primarySoft: '#EDF5FF', 
@@ -43,11 +43,6 @@ export default function Dashboard() {
   const [realtimeLoading, setRealtimeLoading] = useState(false);
   
   const maxDate = getLocalISODate(new Date());
-  const minDate = (() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 3);
-    return getLocalISODate(d);
-  })();
 
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
@@ -95,13 +90,40 @@ export default function Dashboard() {
         });
         if (res.ok) {
           setUploadedFile(file);
-          alert(`✅ ${file.name}\n데이터셋이 성공적으로 백엔드에 연동되었습니다.\n이제 팩트 기반 AI 예측 및 비교가 가능합니다.`);
+          alert(`✅ ${file.name}\n데이터셋이 성공적으로 연동되었습니다.`);
         } else {
           alert("파일 업로드에 실패했습니다. (서버 응답 오류)");
         }
       } catch (error) {
-        console.error("Upload error:", error);
         alert("백엔드 서버가 켜져 있는지 확인해 주세요.");
+      }
+    }
+  };
+
+  // 🌟 [추가] 백업 CSV 전용 업로드 핸들러
+  const handleBackupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+      setLoading(true);
+
+      try {
+        const res = await fetch(`${API_URL}/api/upload_backup`, {
+          method: 'POST',
+          body: formData
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+          alert(`✅ ${file.name}\n${result.message}\n이제 한전 API 제한 없이 초고속 무제한 조회가 가능합니다.`);
+        } else {
+          alert(`백업 파일 연동 실패:\n${result.error}`);
+        }
+      } catch (error) {
+        alert("백엔드 서버 통신 에러");
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = ''; 
       }
     }
   };
@@ -156,6 +178,7 @@ export default function Dashboard() {
           const validTMax = group.filter(r => r.temp_max !== '--' && r.temp_max !== null);
           const validTMin = group.filter(r => r.temp_min !== '--' && r.temp_min !== null);
           const validHum = group.filter(r => r.humidity !== '--' && r.humidity !== null);
+          const validPm = group.filter(r => r.pm25 !== '--' && r.pm25 !== null);
 
           return {
             date: `${mKey}월`,
@@ -164,7 +187,7 @@ export default function Dashboard() {
             temp_max: validTMax.length > 0 ? Number((validTMax.reduce((acc, cur) => acc + Number(cur.temp_max), 0) / validTMax.length).toFixed(1)) : null,
             temp_min: validTMin.length > 0 ? Number((validTMin.reduce((acc, cur) => acc + Number(cur.temp_min), 0) / validTMin.length).toFixed(1)) : null,
             humidity: validHum.length > 0 ? Number((validHum.reduce((acc, cur) => acc + Number(cur.humidity), 0) / validHum.length).toFixed(1)) : null,
-            pm25: Number((group.reduce((acc, cur) => acc + (Number(cur.pm25) || 0), 0) / count).toFixed(1)),
+            pm25: validPm.length > 0 ? Number((validPm.reduce((acc, cur) => acc + Number(cur.pm25), 0) / validPm.length).toFixed(1)) : null,
           };
         });
         setChartData(monthlyData);
@@ -381,16 +404,20 @@ export default function Dashboard() {
                 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    
+                    {/* 🌟 [추가] 숨겨진 파일 인풋 및 백업 CSV 연동 버튼 */}
+                    <input type="file" accept=".csv" id="backup-upload" style={{ display: 'none' }} onChange={handleBackupUpload} />
+                    <button onClick={() => document.getElementById('backup-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)' }}>💾 백업 데이터 연동</button>
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
-                      <input type="date" min={minDate} max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
+                      <input type="date" max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                       <span style={{ color: theme.border }}>|</span>
-                      <input type="date" min={minDate} max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
+                      <input type="date" max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                     </div>
                     <button onClick={() => { fetchDashboardData(); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
-                    <button onClick={handleExportExcel} style={{ padding: '10px 20px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
+                    <button onClick={handleExportExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
                   </div>
-                  <span style={{ fontSize: '11.5px', color: theme.danger, fontWeight: 700, letterSpacing: '-0.5px' }}>※ 통합 대시보드는 최근 3개월까지만 조회 가능하며, 한전 전력량은 2026년 9월 4일 이후부터 표출됩니다.</span>
                 </div>
               </div>
 
@@ -449,7 +476,6 @@ export default function Dashboard() {
                                         <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
                                       </circle>
                                       <circle cx={cx} cy={cy} r={4} fill="#FFF" />
-                                      {/* 🌟 텍스트를 우측 상단으로 이동하고 왼쪽 정렬(start) 적용 */}
                                       <text x={cx + 12} y={cy - 12} textAnchor="start" fill="#DA1E28" fontSize="13px" fontWeight="800">
                                         {payload.peak_kw.toLocaleString()} kW
                                       </text>
