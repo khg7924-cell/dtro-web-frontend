@@ -15,10 +15,14 @@ const theme = {
   textMain: '#111827', textMuted: '#64748B', border: '#E2E8F0', shadow: '0 4px 24px rgba(0, 0, 0, 0.04)', radius: '16px',         
 };
 
-const getLocalISODate = (d: Date) => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+// 🌟 [수정] 서버가 UTC여도 무조건 한국 시간(KST)을 반환하도록 강제하는 함수
+const getLocalISODate = (d?: Date) => {
+  const target = d || new Date();
+  const utc = target.getTime() + (target.getTimezoneOffset() * 60000);
+  const kstDate = new Date(utc + (3600000 * 9)); // 무조건 UTC+9 시간 적용
+  const year = kstDate.getFullYear();
+  const month = String(kstDate.getMonth() + 1).padStart(2, '0');
+  const day = String(kstDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
@@ -42,15 +46,14 @@ export default function Dashboard() {
   const [realtimeData, setRealtimeData] = useState<any[]>([]);
   const [realtimeLoading, setRealtimeLoading] = useState(false);
   
-  const maxDate = getLocalISODate(new Date());
+  const maxDate = getLocalISODate();
 
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
     return getLocalISODate(d);
   });
   const [endDate, setEndDate] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 1);
-    return getLocalISODate(d);
+    return getLocalISODate(); // 기본값을 정확한 오늘 날짜로 셋팅
   });
   const [weatherTab, setWeatherTab] = useState('temp');
 
@@ -100,7 +103,6 @@ export default function Dashboard() {
     }
   };
 
-  // 🌟 [추가] 백업 CSV 전용 업로드 핸들러
   const handleBackupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -175,19 +177,19 @@ export default function Dashboard() {
         const monthlyData = Object.keys(monthMap).map((mKey) => {
           const group = monthMap[mKey];
           const count = group.length;
-          const validTMax = group.filter(r => r.temp_max !== '--' && r.temp_max !== null);
-          const validTMin = group.filter(r => r.temp_min !== '--' && r.temp_min !== null);
-          const validHum = group.filter(r => r.humidity !== '--' && r.humidity !== null);
-          const validPm = group.filter(r => r.pm25 !== '--' && r.pm25 !== null);
+          const validTMax = group.filter((r: any) => r.temp_max !== '--' && r.temp_max !== null);
+          const validTMin = group.filter((r: any) => r.temp_min !== '--' && r.temp_min !== null);
+          const validHum = group.filter((r: any) => r.humidity !== '--' && r.humidity !== null);
+          const validPm = group.filter((r: any) => r.pm25 !== '--' && r.pm25 !== null);
 
           return {
             date: `${mKey}월`,
-            usage_kwh: Math.round(group.reduce((acc, cur) => acc + cur.usage_kwh, 0)),
-            peak_kw: Math.round(group.reduce((acc, cur) => acc + cur.peak_kw, 0) / count),
-            temp_max: validTMax.length > 0 ? Number((validTMax.reduce((acc, cur) => acc + Number(cur.temp_max), 0) / validTMax.length).toFixed(1)) : null,
-            temp_min: validTMin.length > 0 ? Number((validTMin.reduce((acc, cur) => acc + Number(cur.temp_min), 0) / validTMin.length).toFixed(1)) : null,
-            humidity: validHum.length > 0 ? Number((validHum.reduce((acc, cur) => acc + Number(cur.humidity), 0) / validHum.length).toFixed(1)) : null,
-            pm25: validPm.length > 0 ? Number((validPm.reduce((acc, cur) => acc + Number(cur.pm25), 0) / validPm.length).toFixed(1)) : null,
+            usage_kwh: Math.round(group.reduce((acc: number, cur: any) => acc + cur.usage_kwh, 0)),
+            peak_kw: Math.round(group.reduce((acc: number, cur: any) => acc + cur.peak_kw, 0) / count),
+            temp_max: validTMax.length > 0 ? Number((validTMax.reduce((acc: number, cur: any) => acc + Number(cur.temp_max), 0) / validTMax.length).toFixed(1)) : null,
+            temp_min: validTMin.length > 0 ? Number((validTMin.reduce((acc: number, cur: any) => acc + Number(cur.temp_min), 0) / validTMin.length).toFixed(1)) : null,
+            humidity: validHum.length > 0 ? Number((validHum.reduce((acc: number, cur: any) => acc + Number(cur.humidity), 0) / validHum.length).toFixed(1)) : null,
+            pm25: validPm.length > 0 ? Number((validPm.reduce((acc: number, cur: any) => acc + Number(cur.pm25), 0) / validPm.length).toFixed(1)) : null,
           };
         });
         setChartData(monthlyData);
@@ -405,7 +407,6 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     
-                    {/* 🌟 [추가] 숨겨진 파일 인풋 및 백업 CSV 연동 버튼 */}
                     <input type="file" accept=".csv" id="backup-upload" style={{ display: 'none' }} onChange={handleBackupUpload} />
                     <button onClick={() => document.getElementById('backup-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)' }}>💾 백업 데이터 연동</button>
 
