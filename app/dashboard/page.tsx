@@ -28,15 +28,14 @@ const getLocalISODate = (d?: Date) => {
 export default function Dashboard() {
   const router = useRouter();
   
-  // 🌟 [권한 관리] 실제 시스템에서는 로그인 세션에서 가져올 ID입니다.
-  const [userId, setUserId] = useState('20140165'); // 테스트용으로 하드코딩 (원하시면 변경 가능)
-  const isAdmin = userId === '20140165';
+  // 🌟 [수정] 하드코딩을 제거하고 초기 상태를 비워둡니다.
+  const [userId, setUserId] = useState(''); 
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 🌟 [서버 데이터 상태] 파일 업로드가 아닌, 서버에 파일이 존재하는지 여부를 추적합니다.
   const [isDatasetReady, setIsDatasetReady] = useState(false);
   const [datasetDate, setDatasetDate] = useState('');
 
-  // 컴포넌트가 켜질 때 서버에 엑셀 파일이 있는지 검사합니다.
   const checkDatasetStatus = async () => {
     try {
       const res = await fetch(`${API_URL}/api/check_dataset`);
@@ -51,6 +50,13 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    // 🌟 [핵심] 로그인 페이지(/)에서 넘겨준 실제 접속자 ID를 브라우저에서 꺼내옵니다.
+    const storedId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '알수없음';
+    setUserId(storedId);
+    
+    // 꺼내온 ID가 관리자 ID(20140165)일 때만 isAdmin을 true로 만듭니다.
+    setIsAdmin(storedId === '20140165');
+
     checkDatasetStatus();
   }, []);
 
@@ -96,6 +102,7 @@ export default function Dashboard() {
   const [winterTempAdj, setWinterTempAdj] = useState('-2.0');
   const [pm25Adj, setPm25Adj] = useState('+15');
   
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [predLoading, setPredLoading] = useState(false);
   const [predSummary, setPredSummary] = useState<any>(null);
   const [predChartData, setPredChartData] = useState<any[]>([]);
@@ -126,6 +133,7 @@ export default function Dashboard() {
           body: formData
         });
         if (res.ok) {
+          setUploadedFile(file);
           alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.\n이제 모든 사용자가 분석 기능을 사용할 수 있습니다.`);
           checkDatasetStatus(); // 🌟 업로드 즉시 서버 상태 동기화
         } else {
@@ -809,6 +817,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* 🌟 시뮬레이션 4대 변수 조정 UI 확장 */}
               <div style={{ backgroundColor: theme.surface, padding: '16px 24px', borderRadius: theme.radius, border: `1px solid ${theme.border}`, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '1rem', fontWeight: 700, color: theme.textMain }}>🔮 시뮬레이션 변수 조정</span>
                 <div style={{ width: '1px', height: '24px', backgroundColor: theme.border }}></div>
