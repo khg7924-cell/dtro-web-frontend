@@ -28,11 +28,9 @@ const getLocalISODate = (d?: Date) => {
 export default function Dashboard() {
   const router = useRouter();
   
-  // 🌟 [수정] 하드코딩을 제거하고 초기 상태를 비워둡니다.
   const [userId, setUserId] = useState(''); 
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // 🌟 [서버 데이터 상태] 파일 업로드가 아닌, 서버에 파일이 존재하는지 여부를 추적합니다.
   const [isDatasetReady, setIsDatasetReady] = useState(false);
   const [datasetDate, setDatasetDate] = useState('');
 
@@ -50,13 +48,9 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    // 🌟 [핵심] 로그인 페이지(/)에서 넘겨준 실제 접속자 ID를 브라우저에서 꺼내옵니다.
     const storedId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '알수없음';
     setUserId(storedId);
-    
-    // 꺼내온 ID가 관리자 ID(20140165)일 때만 isAdmin을 true로 만듭니다.
     setIsAdmin(storedId === '20140165');
-
     checkDatasetStatus();
   }, []);
 
@@ -135,7 +129,7 @@ export default function Dashboard() {
         if (res.ok) {
           setUploadedFile(file);
           alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.\n이제 모든 사용자가 분석 기능을 사용할 수 있습니다.`);
-          checkDatasetStatus(); // 🌟 업로드 즉시 서버 상태 동기화
+          checkDatasetStatus(); 
         } else {
           alert("파일 업로드에 실패했습니다. (서버 응답 오류)");
         }
@@ -318,11 +312,12 @@ export default function Dashboard() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
+  // 🌟 [수정] 엑셀 다운로드 포맷에 지침 항목 3가지 추가
   const handleExportBillExcel = () => {
     if (billRecords.length === 0) { alert("다운로드할 요금 데이터가 없습니다."); return; }
-    let csvContent = "\uFEFF청구년월,정기검침일,요금적용전력(kW),기본요금(원),전력량요금(원),할인공제계(원),전기요금계(원),청구요금(원),경부하사용량(kWh),중부하사용량(kWh),최대부하사용량(kWh),지상역률(%),진상역률(%)\n";
+    let csvContent = "\uFEFF청구년월,정기검침일,요금적용전력(kW),기본요금(원),전력량요금(원),할인공제계(원),전기요금계(원),청구요금(원),경부하사용량(kWh),경부하당월지침,중부하사용량(kWh),중부하당월지침,최대부하사용량(kWh),최대부하당월지침,지상역률(%),진상역률(%)\n";
     billRecords.forEach(row => {
-      csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.mload_usekwh},${row.maxload_usekwh},${row.ji_pwrfact},${row.jn_pwrfact}\n`;
+      csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.lload_needle},${row.mload_usekwh},${row.mload_needle},${row.maxload_usekwh},${row.maxload_needle},${row.ji_pwrfact},${row.jn_pwrfact}\n`;
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -376,7 +371,6 @@ export default function Dashboard() {
         </div>
         
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {/* 🌟 관리자에게만 보이는 백업 버튼 */}
           {isAdmin && (
             <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
               💾 마스터 누적 백업
@@ -663,7 +657,6 @@ export default function Dashboard() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
-                  {/* 🌟 관리자 권한 분리: 업로드 버튼 숨김 처리 */}
                   {isAdmin ? (
                     <>
                       <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
@@ -797,7 +790,6 @@ export default function Dashboard() {
                     <input type="text" value={targetYear} onChange={(e) => setTargetYear(e.target.value)} style={{ width: '50px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
                   </div>
                   
-                  {/* 🌟 관리자 권한 분리 */}
                   {isAdmin ? (
                     <>
                       <input type="file" accept=".csv, .xlsx" id="predict-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
@@ -817,7 +809,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* 🌟 시뮬레이션 4대 변수 조정 UI 확장 */}
               <div style={{ backgroundColor: theme.surface, padding: '16px 24px', borderRadius: theme.radius, border: `1px solid ${theme.border}`, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '1rem', fontWeight: 700, color: theme.textMain }}>🔮 시뮬레이션 변수 조정</span>
                 <div style={{ width: '1px', height: '24px', backgroundColor: theme.border }}></div>
@@ -961,18 +952,24 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>할인공제(원)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>요금계(원)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, backgroundColor: '#EFF6FF', color: theme.primary }}>청구요금(원)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>경부하(kWh)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>중부하(kWh)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>지상역률(%)</th>
+                        {/* 🌟 [신규 UI 반영] 경부하 사용량, 지침 */}
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>경부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(경)</th>
+                        {/* 🌟 [신규 UI 반영] 중부하 사용량, 지침 */}
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>중부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(중)</th>
+                        {/* 🌟 [신규 UI 반영] 최대부하 사용량, 지침 */}
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(최대)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>지상역률(%)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {billLoading ? (
-                        <tr><td colSpan={13} style={{ padding: '60px', color: theme.success, fontWeight: 700, fontSize: '15px' }}>한전 서버에서 청구 데이터를 수집 중입니다... ⏳</td></tr>
+                        <tr><td colSpan={16} style={{ padding: '60px', color: theme.success, fontWeight: 700, fontSize: '15px' }}>한전 서버에서 청구 데이터를 수집 중입니다... ⏳</td></tr>
                       ) : billRecords.length === 0 ? (
-                        <tr><td colSpan={13} style={{ padding: '60px', color: theme.textMuted }}>조회된 전기요금 청구 내역이 없습니다. (조회 연도와 대상 개소를 확인해주세요)</td></tr>
+                        <tr><td colSpan={16} style={{ padding: '60px', color: theme.textMuted }}>조회된 전기요금 청구 내역이 없습니다. (조회 연도와 대상 개소를 확인해주세요)</td></tr>
                       ) : (
                         billRecords.map((row: any, idx: number) => (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: '#FFF' }}>
@@ -984,10 +981,17 @@ export default function Dashboard() {
                             <td style={{ padding: '12px', color: theme.success }}>{Number(row.dc_bill || 0).toLocaleString()}</td>
                             <td style={{ padding: '12px' }}>{Number(row.req_bill || 0).toLocaleString()}</td>
                             <td style={{ padding: '12px', fontWeight: 800, color: theme.primary, backgroundColor: '#FAFAFA' }}>{Number(row.req_amt || 0).toLocaleString()}</td>
-                            <td style={{ padding: '12px', color: theme.textMuted }}>{Number(row.lload_usekwh || 0).toLocaleString()}</td>
-                            <td style={{ padding: '12px', color: theme.textMuted }}>{Number(row.mload_usekwh || 0).toLocaleString()}</td>
-                            <td style={{ padding: '12px', color: theme.textMuted }}>{Number(row.maxload_usekwh || 0).toLocaleString()}</td>
-                            <td style={{ padding: '12px' }}>{row.ji_pwrfact}</td>
+                            {/* 🌟 경부하 데이터 묶음 */}
+                            <td style={{ padding: '12px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.lload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.lload_needle || 0).toLocaleString()}</td>
+                            {/* 🌟 중부하 데이터 묶음 */}
+                            <td style={{ padding: '12px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.mload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.mload_needle || 0).toLocaleString()}</td>
+                            {/* 🌟 최대부하 데이터 묶음 */}
+                            <td style={{ padding: '12px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.maxload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.maxload_needle || 0).toLocaleString()}</td>
+                            
+                            <td style={{ padding: '12px', borderLeft: `1px solid ${theme.border}` }}>{row.ji_pwrfact}</td>
                             <td style={{ padding: '12px' }}>{row.jn_pwrfact}</td>
                           </tr>
                         ))
