@@ -64,9 +64,12 @@ export default function Dashboard() {
   const [compLoading, setCompLoading] = useState(false);
   const [aiReport, setAiReport] = useState('');
 
+  // 🌟 AI 시뮬레이션 변수 4종 세팅
   const [targetYear, setTargetYear] = useState('2026');
   const [passRate, setPassRate] = useState('5.0');
   const [tempAdj, setTempAdj] = useState('+1.5');
+  const [winterTempAdj, setWinterTempAdj] = useState('-2.0');
+  const [pm25Adj, setPm25Adj] = useState('+15');
   
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [predLoading, setPredLoading] = useState(false);
@@ -79,13 +82,11 @@ export default function Dashboard() {
   const [billLoading, setBillLoading] = useState(false);
   const [billCustNo, setBillCustNo] = useState('');
 
-  // 🌟 [핵심] 마스터 백업 다운로드 핸들러
   const handleMasterBackup = () => {
     if (!uploadedFile) {
-      alert("베이스가 될 기존 통합 데이터셋을 먼저 [연도별 비교] 또는 [AI 예측] 탭에서 업로드해주세요!\n(9월까지 수동으로 채우신 엑셀을 올려주시면 됩니다)");
+      alert("베이스가 될 기존 통합 데이터셋을 먼저 [연도별 비교] 또는 [AI 예측] 탭에서 업로드해주세요!\n(수동으로 채우신 엑셀을 올려주시면 됩니다)");
       return;
     }
-    // 백엔드의 /api/backup 엔드포인트를 찔러서 엑셀 파일을 브라우저로 직접 다운로드 받습니다.
     window.location.href = `${API_URL}/api/backup`;
   };
 
@@ -210,6 +211,7 @@ export default function Dashboard() {
     } catch (error) { console.error(error); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
   };
 
+  // 🌟 AI 예측 백엔드 호출 파라미터 업데이트
   const runAIPrediction = async () => {
     if (!uploadedFile) { alert("상단에서 통합 데이터셋(Excel) 파일을 먼저 업로드해 주세요."); return; }
     setPredLoading(true);
@@ -218,7 +220,7 @@ export default function Dashboard() {
     setFeatChartData([]);
 
     try {
-      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}`);
+      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setPredLoading(false); return; }
       setPredSummary(result.summary); setPredChartData(result.chart_data); setFeatChartData(result.feat_data);
@@ -339,7 +341,6 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {/* 🌟 헤더 우측 백업 및 로그아웃 영역 */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
             💾 마스터 누적 백업
@@ -621,7 +622,6 @@ export default function Dashboard() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
-                  {/* 🌟 통합 단일 업로드 버튼 */}
                   <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
                   <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
                     {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 통합 데이터셋(백업본 포함) 업로드'}
@@ -747,7 +747,6 @@ export default function Dashboard() {
                     <input type="text" value={targetYear} onChange={(e) => setTargetYear(e.target.value)} style={{ width: '50px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
                   </div>
                   
-                  {/* 🌟 통합 단일 업로드 버튼 */}
                   <input type="file" accept=".csv, .xlsx" id="predict-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
                   <button onClick={() => document.getElementById('predict-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
                     {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 통합 데이터셋(백업본 포함) 업로드'}
@@ -759,16 +758,26 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={{ backgroundColor: theme.surface, padding: '16px 24px', borderRadius: theme.radius, border: `1px solid ${theme.border}`, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '24px' }}>
+              {/* 🌟 시뮬레이션 4대 변수 조정 UI 확장 */}
+              <div style={{ backgroundColor: theme.surface, padding: '16px 24px', borderRadius: theme.radius, border: `1px solid ${theme.border}`, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '1rem', fontWeight: 700, color: theme.textMain }}>🔮 시뮬레이션 변수 조정</span>
                 <div style={{ width: '1px', height: '24px', backgroundColor: theme.border }}></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>연간 승객수 증감(%)</span>
-                  <input type="text" value={passRate} onChange={(e) => setPassRate(e.target.value)} style={{ width: '60px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>승객수(%)</span>
+                  <input type="text" value={passRate} onChange={(e) => setPassRate(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>여름철 기온 조정치(±°C)</span>
-                  <input type="text" value={tempAdj} onChange={(e) => setTempAdj(e.target.value)} style={{ width: '60px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>여름(±°C)</span>
+                  <input type="text" value={tempAdj} onChange={(e) => setTempAdj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>겨울(±°C)</span>
+                  <input type="text" value={winterTempAdj} onChange={(e) => setWinterTempAdj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>PM2.5 나쁨(±일)</span>
+                  <input type="text" value={pm25Adj} onChange={(e) => setPm25Adj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
                 </div>
               </div>
 
