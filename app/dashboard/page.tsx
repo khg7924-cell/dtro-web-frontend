@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
@@ -28,6 +28,32 @@ const getLocalISODate = (d?: Date) => {
 export default function Dashboard() {
   const router = useRouter();
   
+  // 🌟 [권한 관리] 실제 시스템에서는 로그인 세션에서 가져올 ID입니다.
+  const [userId, setUserId] = useState('20140165'); // 테스트용으로 하드코딩 (원하시면 변경 가능)
+  const isAdmin = userId === '20140165';
+
+  // 🌟 [서버 데이터 상태] 파일 업로드가 아닌, 서버에 파일이 존재하는지 여부를 추적합니다.
+  const [isDatasetReady, setIsDatasetReady] = useState(false);
+  const [datasetDate, setDatasetDate] = useState('');
+
+  // 컴포넌트가 켜질 때 서버에 엑셀 파일이 있는지 검사합니다.
+  const checkDatasetStatus = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/check_dataset`);
+      const data = await res.json();
+      if (data.exists) {
+        setIsDatasetReady(true);
+        setDatasetDate(data.updated_at);
+      }
+    } catch (e) {
+      console.error("데이터셋 상태 확인 실패", e);
+    }
+  };
+
+  useEffect(() => {
+    checkDatasetStatus();
+  }, []);
+
   const [mainTab, setMainTab] = useState('dashboard');
   const [station, setStation] = useState('전체');
   const [mappedLocation, setMappedLocation] = useState('대구 전체');
@@ -64,14 +90,12 @@ export default function Dashboard() {
   const [compLoading, setCompLoading] = useState(false);
   const [aiReport, setAiReport] = useState('');
 
-  // 🌟 AI 시뮬레이션 변수 4종 세팅
   const [targetYear, setTargetYear] = useState('2026');
   const [passRate, setPassRate] = useState('5.0');
   const [tempAdj, setTempAdj] = useState('+1.5');
   const [winterTempAdj, setWinterTempAdj] = useState('-2.0');
   const [pm25Adj, setPm25Adj] = useState('+15');
   
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [predLoading, setPredLoading] = useState(false);
   const [predSummary, setPredSummary] = useState<any>(null);
   const [predChartData, setPredChartData] = useState<any[]>([]);
@@ -83,8 +107,8 @@ export default function Dashboard() {
   const [billCustNo, setBillCustNo] = useState('');
 
   const handleMasterBackup = () => {
-    if (!uploadedFile) {
-      alert("베이스가 될 기존 통합 데이터셋을 먼저 [연도별 비교] 또는 [AI 예측] 탭에서 업로드해주세요!\n(수동으로 채우신 엑셀을 올려주시면 됩니다)");
+    if (!isDatasetReady) {
+      alert("베이스가 될 기존 통합 데이터셋이 서버에 없습니다. 먼저 업로드해주세요.");
       return;
     }
     window.location.href = `${API_URL}/api/backup`;
@@ -102,8 +126,8 @@ export default function Dashboard() {
           body: formData
         });
         if (res.ok) {
-          setUploadedFile(file);
-          alert(`✅ ${file.name}\n데이터셋이 성공적으로 연동되었습니다.\n서버가 파일 구조를 파악하여 자동으로 맞춤 분석을 실행합니다.`);
+          alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.\n이제 모든 사용자가 분석 기능을 사용할 수 있습니다.`);
+          checkDatasetStatus(); // 🌟 업로드 즉시 서버 상태 동기화
         } else {
           alert("파일 업로드에 실패했습니다. (서버 응답 오류)");
         }
@@ -200,6 +224,8 @@ export default function Dashboard() {
   };
 
   const fetchCompareData = async () => {
+    if (!isDatasetReady) { alert("서버에 연동된 데이터셋이 없습니다. 관리자에게 업로드를 요청하세요."); return; }
+    
     setCompLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
@@ -211,9 +237,9 @@ export default function Dashboard() {
     } catch (error) { console.error(error); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
   };
 
-  // 🌟 AI 예측 백엔드 호출 파라미터 업데이트
   const runAIPrediction = async () => {
-    if (!uploadedFile) { alert("상단에서 통합 데이터셋(Excel) 파일을 먼저 업로드해 주세요."); return; }
+    if (!isDatasetReady) { alert("서버에 연동된 데이터셋이 없습니다. 관리자에게 업로드를 요청하세요."); return; }
+    
     setPredLoading(true);
     setPredSummary(null);
     setPredChartData([]);
@@ -342,9 +368,16 @@ export default function Dashboard() {
         </div>
         
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
-            💾 마스터 누적 백업
-          </button>
+          {/* 🌟 관리자에게만 보이는 백업 버튼 */}
+          {isAdmin && (
+            <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
+              💾 마스터 누적 백업
+            </button>
+          )}
+          
+          <div style={{ color: '#94A3B8', fontSize: '12px', marginRight: '10px' }}>
+            ID: {userId} {isAdmin ? '(관리자)' : '(일반)'}
+          </div>
           <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
         </div>
       </div>
@@ -622,10 +655,19 @@ export default function Dashboard() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
-                  <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
-                  <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 통합 데이터셋(백업본 포함) 업로드'}
-                  </button>
+                  {/* 🌟 관리자 권한 분리: 업로드 버튼 숨김 처리 */}
+                  {isAdmin ? (
+                    <>
+                      <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
+                      <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
+                        📁 통합 데이터셋(백업본 포함) 업로드
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ padding: '10px 16px', backgroundColor: isDatasetReady ? '#ECFDF5' : '#FEF2F2', color: isDatasetReady ? theme.success : theme.danger, borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: `1px solid ${isDatasetReady ? '#A7F3D0' : '#FECACA'}` }}>
+                      {isDatasetReady ? `✅ 서버 연동 완료 (${datasetDate})` : '⚠️ 데이터셋 미연동 (관리자 문의)'}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.surface, padding: '6px 16px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -747,10 +789,19 @@ export default function Dashboard() {
                     <input type="text" value={targetYear} onChange={(e) => setTargetYear(e.target.value)} style={{ width: '50px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
                   </div>
                   
-                  <input type="file" accept=".csv, .xlsx" id="predict-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
-                  <button onClick={() => document.getElementById('predict-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 통합 데이터셋(백업본 포함) 업로드'}
-                  </button>
+                  {/* 🌟 관리자 권한 분리 */}
+                  {isAdmin ? (
+                    <>
+                      <input type="file" accept=".csv, .xlsx" id="predict-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
+                      <button onClick={() => document.getElementById('predict-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
+                        📁 통합 데이터셋(백업본 포함) 업로드
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ padding: '10px 16px', backgroundColor: isDatasetReady ? '#ECFDF5' : '#FEF2F2', color: isDatasetReady ? theme.success : theme.danger, borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: `1px solid ${isDatasetReady ? '#A7F3D0' : '#FECACA'}` }}>
+                      {isDatasetReady ? `✅ 서버 연동 완료 (${datasetDate})` : '⚠️ 데이터셋 미연동'}
+                    </div>
+                  )}
 
                   <button onClick={runAIPrediction} disabled={predLoading} style={{ padding: '10px 24px', backgroundColor: theme.ai, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', opacity: predLoading ? 0.7 : 1 }}>
                     {predLoading ? '분석 중...' : 'AI 예측 실행'}
@@ -758,7 +809,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* 🌟 시뮬레이션 4대 변수 조정 UI 확장 */}
               <div style={{ backgroundColor: theme.surface, padding: '16px 24px', borderRadius: theme.radius, border: `1px solid ${theme.border}`, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '1rem', fontWeight: 700, color: theme.textMain }}>🔮 시뮬레이션 변수 조정</span>
                 <div style={{ width: '1px', height: '24px', backgroundColor: theme.border }}></div>
@@ -857,7 +907,7 @@ export default function Dashboard() {
                 <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '80px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
                   <span style={{ fontSize: '3rem' }}>📁</span>
                   <h3 style={{ color: theme.textMain, marginTop: '16px', marginBottom: '8px' }}>데이터를 기다리고 있습니다</h3>
-                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>과거 데이터셋(CSV/Excel)을 업로드하고 개소 선택 후 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
+                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>서버에 연동된 데이터셋이 있다면 우측 상단의 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
                 </div>
               )}
             </div>
