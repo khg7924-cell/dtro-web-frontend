@@ -15,11 +15,10 @@ const theme = {
   textMain: '#111827', textMuted: '#64748B', border: '#E2E8F0', shadow: '0 4px 24px rgba(0, 0, 0, 0.04)', radius: '16px',         
 };
 
-// 🌟 [수정] 서버가 UTC여도 무조건 한국 시간(KST)을 반환하도록 강제하는 함수
 const getLocalISODate = (d?: Date) => {
   const target = d || new Date();
   const utc = target.getTime() + (target.getTimezoneOffset() * 60000);
-  const kstDate = new Date(utc + (3600000 * 9)); // 무조건 UTC+9 시간 적용
+  const kstDate = new Date(utc + (3600000 * 9)); 
   const year = kstDate.getFullYear();
   const month = String(kstDate.getMonth() + 1).padStart(2, '0');
   const day = String(kstDate.getDate()).padStart(2, '0');
@@ -53,7 +52,7 @@ export default function Dashboard() {
     return getLocalISODate(d);
   });
   const [endDate, setEndDate] = useState(() => {
-    return getLocalISODate(); // 기본값을 정확한 오늘 날짜로 셋팅
+    return getLocalISODate(); 
   });
   const [weatherTab, setWeatherTab] = useState('temp');
 
@@ -80,6 +79,16 @@ export default function Dashboard() {
   const [billLoading, setBillLoading] = useState(false);
   const [billCustNo, setBillCustNo] = useState('');
 
+  // 🌟 [핵심] 마스터 백업 다운로드 핸들러
+  const handleMasterBackup = () => {
+    if (!uploadedFile) {
+      alert("베이스가 될 기존 통합 데이터셋을 먼저 [연도별 비교] 또는 [AI 예측] 탭에서 업로드해주세요!\n(9월까지 수동으로 채우신 엑셀을 올려주시면 됩니다)");
+      return;
+    }
+    // 백엔드의 /api/backup 엔드포인트를 찔러서 엑셀 파일을 브라우저로 직접 다운로드 받습니다.
+    window.location.href = `${API_URL}/api/backup`;
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -93,39 +102,12 @@ export default function Dashboard() {
         });
         if (res.ok) {
           setUploadedFile(file);
-          alert(`✅ ${file.name}\n데이터셋이 성공적으로 연동되었습니다.`);
+          alert(`✅ ${file.name}\n데이터셋이 성공적으로 연동되었습니다.\n서버가 파일 구조를 파악하여 자동으로 맞춤 분석을 실행합니다.`);
         } else {
           alert("파일 업로드에 실패했습니다. (서버 응답 오류)");
         }
       } catch (error) {
         alert("백엔드 서버가 켜져 있는지 확인해 주세요.");
-      }
-    }
-  };
-
-  const handleBackupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      const formData = new FormData();
-      formData.append("file", file);
-      setLoading(true);
-
-      try {
-        const res = await fetch(`${API_URL}/api/upload_backup`, {
-          method: 'POST',
-          body: formData
-        });
-        const result = await res.json();
-        if (result.status === 'success') {
-          alert(`✅ ${file.name}\n${result.message}\n이제 한전 API 제한 없이 초고속 무제한 조회가 가능합니다.`);
-        } else {
-          alert(`백업 파일 연동 실패:\n${result.error}`);
-        }
-      } catch (error) {
-        alert("백엔드 서버 통신 에러");
-      } finally {
-        setLoading(false);
-        if (e.target) e.target.value = ''; 
       }
     }
   };
@@ -356,7 +338,14 @@ export default function Dashboard() {
             <button onClick={() => setMainTab('bill')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'bill' ? 'rgba(25, 128, 56, 0.15)' : 'transparent', color: mainTab === 'bill' ? theme.success : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🧾 전기요금</button>
           </div>
         </div>
-        <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
+        
+        {/* 🌟 헤더 우측 백업 및 로그아웃 영역 */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
+            💾 마스터 누적 백업
+          </button>
+          <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -407,9 +396,6 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     
-                    <input type="file" accept=".csv" id="backup-upload" style={{ display: 'none' }} onChange={handleBackupUpload} />
-                    <button onClick={() => document.getElementById('backup-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px', boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)' }}>💾 백업 데이터 연동</button>
-
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
                       <input type="date" max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
@@ -635,9 +621,10 @@ export default function Dashboard() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
+                  {/* 🌟 통합 단일 업로드 버튼 */}
                   <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
                   <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 초미세먼지/승객수/전력량 통합 데이터셋 업로드'}
+                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 통합 데이터셋(백업본 포함) 업로드'}
                   </button>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.surface, padding: '6px 16px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
@@ -760,9 +747,10 @@ export default function Dashboard() {
                     <input type="text" value={targetYear} onChange={(e) => setTargetYear(e.target.value)} style={{ width: '50px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
                   </div>
                   
+                  {/* 🌟 통합 단일 업로드 버튼 */}
                   <input type="file" accept=".csv, .xlsx" id="predict-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
                   <button onClick={() => document.getElementById('predict-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: uploadedFile ? '#ECFDF5' : theme.surface, color: uploadedFile ? theme.success : theme.textMain, border: `1px solid ${uploadedFile ? '#A7F3D0' : theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 초미세먼지/승객수/전력량 통합 데이터셋 업로드'}
+                    {uploadedFile ? `✅ ${uploadedFile.name}` : '📁 통합 데이터셋(백업본 포함) 업로드'}
                   </button>
 
                   <button onClick={runAIPrediction} disabled={predLoading} style={{ padding: '10px 24px', backgroundColor: theme.ai, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', opacity: predLoading ? 0.7 : 1 }}>
