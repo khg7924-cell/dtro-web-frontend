@@ -12,9 +12,8 @@ export default function LoginPage() {
   
   const [userId, setUserId] = useState(''); 
   const [password, setPassword] = useState('');
-  const [department, setDepartment] = useState(''); // 🌟 userName을 department(소속)로 변경
+  const [department, setDepartment] = useState(''); 
 
-  // 일반 아이디를 Firebase가 인식할 수 있는 가짜 이메일로 자동 변환 (화면에는 노출 안 됨)
   const formatEmail = (id: string) => `${id}@dtro.local`;
 
   // 🟢 로그인 처리 로직
@@ -35,6 +34,10 @@ export default function LoginPage() {
       if (snapshot.exists()) {
         const userData = snapshot.val();
         if (userData.isApproved === true) {
+          
+          // 🌟 [핵심 수정 포인트] 로그인 성공 시 대시보드에서 쓸 수 있도록 아이디를 브라우저에 저장!
+          localStorage.setItem('userId', userId);
+          
           router.push('/dashboard'); 
         } else {
           await signOut(auth); 
@@ -52,7 +55,6 @@ export default function LoginPage() {
   // 🔵 회원가입 처리 로직
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 🌟 입력값 검증에 department 적용
     if (userId.trim() === '' || password.trim() === '' || department.trim() === '') {
       alert('모든 정보를 입력해 주세요.');
       return;
@@ -62,7 +64,6 @@ export default function LoginPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, formatEmail(userId), password);
       const user = userCredential.user;
 
-      // 🌟 Realtime Database에 이름 대신 소속(department) 저장
       await set(ref(db, 'users/' + user.uid), {
         empId: userId,
         department: department, 
@@ -72,7 +73,7 @@ export default function LoginPage() {
       await signOut(auth);
       
       alert('회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.');
-      setDepartment(''); // 입력창 초기화
+      setDepartment(''); 
       setPassword('');
       setIsLoginMode(true);
       
@@ -123,7 +124,6 @@ export default function LoginPage() {
           
           <form onSubmit={isLoginMode ? handleLogin : handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
-            {/* 🌟 회원가입 시에만 나타나는 소속 입력칸 */}
             {!isLoginMode && (
               <div>
                 <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>소속</label>
@@ -138,7 +138,6 @@ export default function LoginPage() {
             )}
 
             <div>
-              {/* 🌟 아이디 부분 안내 문구(이메일) 완전 삭제 */}
               <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>아이디</label>
               <input 
                 type="text" 
