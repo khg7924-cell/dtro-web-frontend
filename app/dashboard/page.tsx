@@ -45,8 +45,8 @@ export default function Dashboard() {
         setIsDatasetReady(true);
         setDatasetDate(data.updated_at);
       }
-    } catch (e) {
-      console.error("데이터셋 상태 확인 실패", e);
+    } catch (err) {
+      console.error("데이터셋 상태 확인 실패", err);
     }
   };
 
@@ -56,7 +56,6 @@ export default function Dashboard() {
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
 
-    // Firebase 실시간 리스너 연동 (데이터가 바뀌면 즉시 화면 갱신)
     try {
       const reportsRef = ref(db, 'load_reports');
       const unsubscribe = onValue(reportsRef, (snapshot) => {
@@ -66,15 +65,14 @@ export default function Dashboard() {
             id: key,
             ...data[key]
           }));
-          // 최신 글이 위로 오도록 배열을 뒤집습니다.
           setReports(loadedReports.reverse()); 
         } else {
           setReports([]);
         }
       });
       return () => unsubscribe();
-    } catch (error) {
-      console.error("Firebase DB 연결 실패. db 경로 설정을 확인하세요.", error);
+    } catch (err) {
+      console.error("Firebase DB 연결 실패. db 경로 설정을 확인하세요.", err);
     }
   }, []);
 
@@ -114,7 +112,6 @@ export default function Dashboard() {
   const [tempAdj, setTempAdj] = useState('+1.5');
   const [winterTempAdj, setWinterTempAdj] = useState('-2.0');
   const [pm25Adj, setPm25Adj] = useState('+15');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [predLoading, setPredLoading] = useState(false);
   const [predSummary, setPredSummary] = useState<any>(null);
   const [predChartData, setPredChartData] = useState<any[]>([]);
@@ -130,7 +127,6 @@ export default function Dashboard() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [mappedSubstation, setMappedSubstation] = useState('');
   
-  // 🌟 가짜 데이터(더미)를 모두 제거하고 완전히 빈 상태로 시작합니다.
   const [reports, setReports] = useState<any[]>([]);
 
   const [formDept, setFormDept] = useState('');
@@ -162,7 +158,6 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 🌟 Firebase 신고서 제출
   const handleSubmitNewReport = async () => {
     if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 정확히 입력해 주세요.');
@@ -191,8 +186,9 @@ export default function Dashboard() {
       setFormStation('');
       setFormDesc('');
       setFormKw('');
-    } catch (e: any) {
-      alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${e.message}\nFirebase Database 규칙을 확인해주세요.`);
+    } catch (err: any) {
+      console.error(err);
+      alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
     }
   };
 
@@ -216,8 +212,9 @@ export default function Dashboard() {
       });
       alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
       setShowMappingModal(false);
-    } catch (e: any) {
-      alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${e.message}`);
+    } catch (err: any) {
+      console.error(err);
+      alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
     }
   };
 
@@ -238,13 +235,13 @@ export default function Dashboard() {
       try {
         const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData });
         if (res.ok) {
-          setUploadedFile(file);
           alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.`);
           checkDatasetStatus(); 
         } else {
           alert("파일 업로드에 실패했습니다.");
         }
-      } catch (error) {
+      } catch (err) {
+        console.error(err);
         alert("백엔드 서버가 켜져 있는지 확인해 주세요.");
       }
     }
@@ -298,7 +295,7 @@ export default function Dashboard() {
         setChartData(records.map((r: any) => ({ ...r, date: r.date.substring(5) })));
       }
       setExpandedRows({});
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
   const fetchRealtimeData = async () => {
@@ -308,7 +305,7 @@ export default function Dashboard() {
       const result = await response.json();
       if (result.error) { alert(result.error); setRealtimeLoading(false); return; }
       setRealtimeData(result.records || []);
-    } catch (error) { console.error(error); } finally { setRealtimeLoading(false); }
+    } catch (err) { console.error(err); } finally { setRealtimeLoading(false); }
   };
 
   const fetchCompareData = async () => {
@@ -321,7 +318,7 @@ export default function Dashboard() {
       setCompRecords(result.records || []);
       setCompSummary(result.summary || {});
       setAiReport(result.summary?.ai_report || '리포트 생성 중 오류가 발생했습니다.');
-    } catch (error) { console.error(error); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
+    } catch (err) { console.error(err); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
   };
 
   const runAIPrediction = async () => {
@@ -338,7 +335,7 @@ export default function Dashboard() {
       setPredSummary(result.summary); 
       setPredChartData(result.chart_data); 
       setFeatChartData(result.feat_data);
-    } catch (error) { alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
+    } catch (err) { console.error(err); alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
   };
 
   const fetchBillData = async () => {
@@ -354,7 +351,8 @@ export default function Dashboard() {
       if (result.error) { alert(result.error); setBillRecords([]); setBillLoading(false); return; }
       setBillRecords(result.records || []);
       setBillCustNo(result.cust_no || '');
-    } catch(e) {
+    } catch(err) {
+      console.error(err);
       alert("전기요금 서버 통신 에러");
     } finally { setBillLoading(false); }
   };
@@ -436,7 +434,6 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}>
       
-      {/* 상단 네비게이션 헤더 */}
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>데이터센터 프로</span></h1>
@@ -464,7 +461,6 @@ export default function Dashboard() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* 좌측 사이드바 (부하증감 탭에서는 숨김) */}
         {mainTab !== 'report' && (
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
@@ -499,7 +495,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 메인 화면 영역 */}
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
           
           {/* ===================== [1. 통합 대시보드 탭] ===================== */}
@@ -1082,7 +1077,6 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  {/* 🌟 명칭 완전 수정: 부하증감 신고 */}
                   <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>부하증감 신고</h2>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#FEF2F2', color: theme.danger, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>📝</span> 역사 및 기지 내 신설/철거 설비의 전력 정보를 계통에 매핑합니다.
@@ -1217,15 +1211,13 @@ export default function Dashboard() {
                 <input type="text" placeholder="담당자 성명" value={formName} onChange={e => setFormName(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
               </div>
               <div style={{ display: 'flex', gap: '16px' }}>
-                {/* 🌟 호선 선택 콤보박스 (종합청사 추가) */}
                 <select value={formLine} onChange={e => setFormLine(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
                   <option value="1호선">1호선</option>
                   <option value="2호선">2호선</option>
                   <option value="3호선">3호선</option>
                   <option value="종합청사">종합청사</option>
                 </select>
-                {/* 🌟 설치 역사명 직접 작성 칸 */}
-                <input type="text" placeholder="설치/철거 역사명 직접 입력 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <input type="text" placeholder="설치/철거 역사명 직접입력 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
               </div>
               <div style={{ display: 'flex', gap: '16px' }}>
                 <select value={formType} onChange={e => setFormType(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
