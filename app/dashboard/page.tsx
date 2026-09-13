@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-// 🌟 Firebase 실시간 연동 부활! (경로 에러 나지 않도록 깊이 조절 유지)
+// 🌟 Firebase 실시간 연동 (경로 깊이 유지)
 import { db } from '../../firebase'; 
 import { ref, push, onValue, update, remove } from 'firebase/database';
 
@@ -56,7 +56,7 @@ export default function Dashboard() {
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
 
-    // 🌟 Firebase 실시간 리스너 작동 (다른 PC에서 입력해도 즉각 동기화)
+    // Firebase 실시간 리스너 작동 (다른 PC에서 입력해도 즉각 동기화)
     try {
       const reportsRef = ref(db, 'load_reports');
       const unsubscribe = onValue(reportsRef, (snapshot) => {
@@ -131,7 +131,6 @@ export default function Dashboard() {
   
   const [reports, setReports] = useState<any[]>([]);
   
-  // 🌟 Firebase ID는 문자열(string)이므로 string 배열로 타입 변경
   const [selectedForDeletion, setSelectedForDeletion] = useState<string[]>([]);
 
   const [formDept, setFormDept] = useState('');
@@ -146,7 +145,7 @@ export default function Dashboard() {
   const [formStartTime, setFormStartTime] = useState('05:00');
   const [formEndTime, setFormEndTime] = useState('24:00');
 
-  // 🌟 가동 시간 자동 계산 함수
+  // 가동 시간 자동 계산 함수
   const calculateHours = (start: string, end: string) => {
     if (!start || !end) return 0;
     const [sh, sm] = start.split(':').map(Number);
@@ -180,7 +179,7 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 🌟 Firebase에 신규 신고서 제출 (자동 시간 연산 적용)
+  // Firebase에 신규 신고서 제출
   const handleSubmitNewReport = async () => {
     if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 정확히 입력해 주세요.');
@@ -222,7 +221,7 @@ export default function Dashboard() {
     setShowMappingModal(true);
   };
 
-  // 🌟 Firebase 관리자 매핑 승인 업데이트
+  // Firebase 관리자 매핑 승인 업데이트
   const submitMapping = async () => {
     if (!mappedSubstation || !selectedReportId) {
       alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
@@ -242,7 +241,7 @@ export default function Dashboard() {
     }
   };
 
-  // 🌟 Firebase 관리자 매핑 해제 기능
+  // Firebase 관리자 매핑 해제 기능
   const handleUnmapReport = async (id: string) => {
     if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
       try {
@@ -257,7 +256,7 @@ export default function Dashboard() {
     }
   };
 
-  // 🌟 관리자 선택 삭제 체크 토글 기능
+  // 관리자 선택 삭제 체크 토글 기능
   const toggleSelectForDeletion = (id: string) => {
     if (selectedForDeletion.includes(id)) {
       setSelectedForDeletion(selectedForDeletion.filter(item => item !== id));
@@ -266,11 +265,10 @@ export default function Dashboard() {
     }
   };
 
-  // 🌟 Firebase 관리자 선택 항목 일괄 삭제 실행
+  // Firebase 관리자 선택 항목 일괄 삭제 실행
   const handleDeleteSelected = async () => {
     if (window.confirm(`선택한 ${selectedForDeletion.length}개의 신고 내역을 완전히 삭제하시겠습니까?`)) {
       try {
-        // Promise.all을 사용하여 병렬로 삭제 처리
         await Promise.all(
           selectedForDeletion.map(id => remove(ref(db, `load_reports/${id}`)))
         );
@@ -393,7 +391,6 @@ export default function Dashboard() {
     setFeatChartData([]);
 
     try {
-      // 이제 백엔드 서버도 이 Firebase를 직접 읽으므로 reports 파라미터를 보낼 필요가 없습니다. (api_server.py가 알아서 가져감)
       const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
       const result = await response.json();
       
@@ -1288,7 +1285,8 @@ export default function Dashboard() {
       {showNewReportModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '500px', boxShadow: theme.shadow }}>
-            <h3 style={{ margin: '0 0 16px 0', color: theme.textMain, fontWeight: 800 }}>📝 타 부서 설비 부하증감 신고서</h3>
+            {/* 🌟 명칭 수정: 설비 부하증감 신고서 */}
+            <h3 style={{ margin: '0 0 16px 0', color: theme.textMain, fontWeight: 800 }}>📝 설비 부하증감 신고서</h3>
             <p style={{ margin: '0 0 24px 0', color: theme.textMuted, fontSize: '14px' }}>
               전력 예측 시스템에 반영될 역사 내 설비 변동 사항을 입력해 주세요.
             </p>
@@ -1366,8 +1364,9 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
+                {/* 🌟 텍스트 단순화 */}
                 <div style={{ marginTop: '12px', textAlign: 'right', fontSize: '14px', fontWeight: 700, color: theme.primary }}>
-                  자동 계산 결과: {formCalculatedHours} 시간/일
+                  {formCalculatedHours} 시간/일
                 </div>
               </div>
 
