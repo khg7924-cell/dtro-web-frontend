@@ -105,11 +105,11 @@ export default function Dashboard() {
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const [mappedSubstation, setMappedSubstation] = useState('');
   
-  // 🌟 Firebase 대신 로컬 State 사용 (테스트 편의를 위해 2개의 초기 데이터 세팅)
-  const [reports, setReports] = useState<any[]>([
-    { id: 1, reqDate: '2026-09-10', dept: '건축설비처', name: '홍길동', line: '1호선', station: '반월당', type: '증설(+)', desc: '3번 출구 에스컬레이터 2기 신설', kw: 45, hours: 19, applyDate: '2026-10-01', status: '확인중', substation: '' },
-    { id: 2, reqDate: '2026-09-12', dept: '통신처', name: '김철수', line: '2호선', station: '대구은행', type: '철거(-)', desc: '구형 통신장비 철거 및 교체', kw: 10, hours: 24, applyDate: '2026-09-20', status: '확인', substation: '대구은행' }
-  ]);
+  // 🌟 부하증감 데이터 상태 (기본 빈 배열)
+  const [reports, setReports] = useState<any[]>([]);
+  
+  // 🌟 관리자 전용 삭제용 체크박스 상태
+  const [selectedForDeletion, setSelectedForDeletion] = useState<number[]>([]);
 
   const [formDept, setFormDept] = useState('');
   const [formName, setFormName] = useState('');
@@ -119,7 +119,26 @@ export default function Dashboard() {
   const [formApplyDate, setFormApplyDate] = useState(getLocalISODate());
   const [formDesc, setFormDesc] = useState('');
   const [formKw, setFormKw] = useState('');
-  const [formHours, setFormHours] = useState('19');
+  
+  // 🌟 시작시간, 종료시간 입력 상태로 변경
+  const [formStartTime, setFormStartTime] = useState('05:00');
+  const [formEndTime, setFormEndTime] = useState('24:00');
+
+  // 🌟 가동 시간 자동 계산 함수
+  const calculateHours = (start: string, end: string) => {
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    let [eh, em] = end.split(':').map(Number);
+    // 24:00 입력을 허용하기 위한 처리 (일부 브라우저 시간 입력 지원)
+    if (end === "24:00") { eh = 24; em = 0; }
+    
+    let diffMins = (eh * 60 + em) - (sh * 60 + sm);
+    if (diffMins <= 0) diffMins += 24 * 60; // 자정을 넘기는 경우 처리
+    
+    return parseFloat((diffMins / 60).toFixed(1));
+  };
+
+  const formCalculatedHours = calculateHours(formStartTime, formEndTime);
 
   const substationList = [
     '설화명곡', '서부정류장', '반월당', '신천', '방촌', '안심', '숙천', '금락',
@@ -140,7 +159,7 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 🌟 새 신고서 로컬 State에 저장
+  // 🌟 새 신고서 로컬 State에 저장 (가동시간 반영)
   const handleSubmitNewReport = () => {
     if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 정확히 입력해 주세요.');
@@ -157,7 +176,9 @@ export default function Dashboard() {
       type: formType,
       desc: formDesc,
       kw: parseFloat(formKw),
-      hours: parseFloat(formHours),
+      startTime: formStartTime,
+      endTime: formEndTime,
+      hours: formCalculatedHours,
       applyDate: formApplyDate,
       status: '확인중',
       substation: ''
@@ -192,6 +213,23 @@ export default function Dashboard() {
   const handleUnmapReport = (id: number) => {
     if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
       setReports(reports.map(r => r.id === id ? { ...r, status: '확인중', substation: '' } : r));
+    }
+  };
+
+  // 🌟 관리자 선택 삭제 체크 토글 기능
+  const toggleSelectForDeletion = (id: number) => {
+    if (selectedForDeletion.includes(id)) {
+      setSelectedForDeletion(selectedForDeletion.filter(item => item !== id));
+    } else {
+      setSelectedForDeletion([...selectedForDeletion, id]);
+    }
+  };
+
+  // 🌟 관리자 선택 항목 전체 삭제 실행
+  const handleDeleteSelected = () => {
+    if (window.confirm(`선택한 ${selectedForDeletion.length}개의 신고 내역을 완전히 삭제하시겠습니까?`)) {
+      setReports(reports.filter(r => !selectedForDeletion.includes(r.id)));
+      setSelectedForDeletion([]);
     }
   };
 
@@ -306,7 +344,6 @@ export default function Dashboard() {
     setFeatChartData([]);
 
     try {
-      // 🌟 프론트엔드 상태 중 "확인(승인)"된 리포트들만 모아서 백엔드에 보냅니다.
       const confirmedReports = reports.filter(r => r.status === '확인');
       const reportsParam = encodeURIComponent(JSON.stringify(confirmedReports));
       
@@ -1068,6 +1105,12 @@ export default function Dashboard() {
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {/* 🌟 관리자 전용 일괄 삭제 버튼 */}
+                  {isAdmin && selectedForDeletion.length > 0 && (
+                    <button onClick={handleDeleteSelected} style={{ padding: '10px 20px', backgroundColor: '#FEE2E2', color: theme.danger, border: `1px solid ${theme.danger}`, borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
+                      🗑️ 선택 삭제 ({selectedForDeletion.length})
+                    </button>
+                  )}
                   <button onClick={() => setShowNewReportModal(true)} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
                     + 신규 부하 신고서 작성
                   </button>
@@ -1079,25 +1122,37 @@ export default function Dashboard() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '14px', whiteSpace: 'nowrap' }}>
                     <thead style={{ backgroundColor: '#F8FAFC', color: theme.textMuted }}>
                       <tr>
+                        {/* 🌟 관리자 전용 체크박스 헤더 */}
+                        {isAdmin && <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, width: '40px' }}>선택</th>}
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>등록일</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>담당부서(자)</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>설치위치(역사명)</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>구분</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, textAlign: 'left' }}>설비 내용</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>소비전력</th>
-                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>일 가동</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>가동시간 (자동)</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>적용예정일</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>상태</th>
-                        {/* 🌟 관리자에게만 보이는 변전소 매핑 헤더 */}
                         {isAdmin && <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>급전 계통(변전소) 매핑</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {reports.length === 0 ? (
-                        <tr><td colSpan={isAdmin ? 10 : 9} style={{ padding: '40px', color: theme.textMuted }}>등록된 부하증감 신고서가 없습니다.</td></tr>
+                        <tr><td colSpan={isAdmin ? 11 : 9} style={{ padding: '40px', color: theme.textMuted }}>등록된 부하증감 신고서가 없습니다.</td></tr>
                       ) : (
                         reports.map((row) => (
-                          <tr key={row.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                          <tr key={row.id} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: selectedForDeletion.includes(row.id) ? '#FEF2F2' : '#FFF' }}>
+                            {/* 🌟 관리자 전용 체크박스 바디 */}
+                            {isAdmin && (
+                              <td style={{ padding: '16px' }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedForDeletion.includes(row.id)} 
+                                  onChange={() => toggleSelectForDeletion(row.id)} 
+                                  style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                                />
+                              </td>
+                            )}
                             <td style={{ padding: '16px', color: theme.textMuted }}>{row.reqDate}</td>
                             <td style={{ padding: '16px', fontWeight: 600 }}>{row.dept}<br/><span style={{fontSize:'12px', color:theme.textMuted}}>{row.name}</span></td>
                             <td style={{ padding: '16px', fontWeight: 700 }}>{row.line} {row.station}</td>
@@ -1106,7 +1161,10 @@ export default function Dashboard() {
                             </td>
                             <td style={{ padding: '16px', textAlign: 'left', fontWeight: 500 }}>{row.desc}</td>
                             <td style={{ padding: '16px', fontWeight: 700 }}>{row.kw} kW</td>
-                            <td style={{ padding: '16px', color: theme.textMuted }}>{row.hours} 시간</td>
+                            <td style={{ padding: '16px', color: theme.textMain }}>
+                              {row.startTime}~{row.endTime}<br/>
+                              <span style={{ color: theme.textMuted, fontSize: '12px', fontWeight: 600 }}>({row.hours}시간)</span>
+                            </td>
                             <td style={{ padding: '16px', fontWeight: 600 }}>{row.applyDate}</td>
                             <td style={{ padding: '16px' }}>
                               <span style={{ 
@@ -1118,7 +1176,6 @@ export default function Dashboard() {
                               </span>
                             </td>
                             
-                            {/* 🌟 관리자에게만 보이는 변전소 매핑 영역 */}
                             {isAdmin && (
                               <td style={{ padding: '16px' }}>
                                 {row.status === '확인중' ? (
@@ -1128,13 +1185,7 @@ export default function Dashboard() {
                                 ) : (
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: theme.primary, fontWeight: 700, fontSize: '14px' }}>⚡ {row.substation}</span>
-                                    {/* 🌟 매핑 해제 버튼 추가 */}
-                                    <button onClick={() => {
-                                      if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
-                                        const unmappedReports = reports.map(r => r.id === row.id ? { ...r, status: '확인중', substation: '' } : r);
-                                        setReports(unmappedReports);
-                                      }
-                                    }} style={{ padding: '4px 8px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                    <button onClick={() => handleUnmapReport(row.id)} style={{ padding: '4px 8px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
                                       해제
                                     </button>
                                   </div>
@@ -1181,15 +1232,7 @@ export default function Dashboard() {
               <button onClick={() => setShowMappingModal(false)} style={{ flex: 1, padding: '12px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
                 취소
               </button>
-              <button onClick={() => {
-                if (!mappedSubstation || selectedReportId === null) {
-                  alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
-                  return;
-                }
-                setReports(reports.map(r => r.id === selectedReportId ? { ...r, status: '확인', substation: mappedSubstation } : r));
-                alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
-                setShowMappingModal(false);
-              }} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={submitMapping} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
                 매핑 및 확인 완료
               </button>
             </div>
@@ -1208,61 +1251,87 @@ export default function Dashboard() {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
               <div style={{ display: 'flex', gap: '16px' }}>
-                <input type="text" placeholder="담당부서 (예: 건축설비처)" value={formDept} onChange={e => setFormDept(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
-                <input type="text" placeholder="담당자 성명" value={formName} onChange={e => setFormName(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>담당부서</label>
+                  <input type="text" placeholder="예: 건축설비처" value={formDept} onChange={e => setFormDept(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>담당자 성명</label>
+                  <input type="text" placeholder="예: 홍길동" value={formName} onChange={e => setFormName(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '16px' }}>
-                <select value={formLine} onChange={e => setFormLine(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
-                  <option value="1호선">1호선</option>
-                  <option value="2호선">2호선</option>
-                  <option value="3호선">3호선</option>
-                  <option value="종합청사">종합청사</option>
-                </select>
-                <input type="text" placeholder="설치/철거 역사명 직접입력 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>호선 선택</label>
+                  <select value={formLine} onChange={e => setFormLine(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }}>
+                    <option value="1호선">1호선</option>
+                    <option value="2호선">2호선</option>
+                    <option value="3호선">3호선</option>
+                    <option value="종합청사">종합청사</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>설치/철거 역사명</label>
+                  <input type="text" placeholder="직접입력 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: '16px' }}>
-                <select value={formType} onChange={e => setFormType(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
-                  <option value="증설(+)">증설 (+)</option>
-                  <option value="철거(-)">철거 (-)</option>
-                </select>
-                <input type="date" value={formApplyDate} onChange={e => setFormApplyDate(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>증감 구분</label>
+                  <select value={formType} onChange={e => setFormType(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }}>
+                    <option value="증설(+)">증설 (+)</option>
+                    <option value="철거(-)">철거 (-)</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>적용 예정일</label>
+                  <input type="date" value={formApplyDate} onChange={e => setFormApplyDate(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                </div>
               </div>
-              <input type="text" placeholder="설비 내용 (예: 3번출구 E/S 2기 신설)" value={formDesc} onChange={e => setFormDesc(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>설비 내용</label>
+                <input type="text" placeholder="예: 3번출구 E/S 2기 신설" value={formDesc} onChange={e => setFormDesc(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+              </div>
+
               <div style={{ display: 'flex', gap: '16px' }}>
-                <input type="number" placeholder="소비전력 (kW)" value={formKw} onChange={e => setFormKw(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
-                <input type="number" placeholder="일 평균 가동시간 (시간)" value={formHours} onChange={e => setFormHours(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>소비 전력 (kW)</label>
+                  <input type="number" placeholder="예: 45" value={formKw} onChange={e => setFormKw(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                </div>
               </div>
+
+              {/* 🌟 가동시간 입력 및 자동 연산 영역 */}
+              <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: theme.textMain, marginBottom: '12px' }}>일일 가동 시간 설정</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input type="time" value={formStartTime} onChange={e => setFormStartTime(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: `1px solid ${theme.border}` }} />
+                  <span style={{ fontWeight: 'bold', color: theme.textMuted }}>~</span>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: `1px solid ${theme.border}`, borderRadius: '6px', backgroundColor: '#FFF', overflow: 'hidden' }}>
+                    <input 
+                      type="time" 
+                      value={formEndTime === '24:00' ? '' : formEndTime} 
+                      onChange={e => setFormEndTime(e.target.value)} 
+                      style={{ flex: 1, padding: '10px', border: 'none', outline: 'none' }} 
+                    />
+                    <button 
+                      onClick={() => setFormEndTime('24:00')} 
+                      style={{ padding: '0 12px', backgroundColor: formEndTime === '24:00' ? theme.primary : '#E2E8F0', color: formEndTime === '24:00' ? '#FFF' : theme.textMain, border: 'none', borderLeft: `1px solid ${theme.border}`, cursor: 'pointer', height: '100%', fontSize: '12px', fontWeight: 700 }}
+                    >
+                      24:00
+                    </button>
+                  </div>
+                </div>
+                <div style={{ marginTop: '12px', textAlign: 'right', fontSize: '14px', fontWeight: 700, color: theme.primary }}>
+                  자동 계산 결과: {formCalculatedHours} 시간/일
+                </div>
+              </div>
+
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={() => setShowNewReportModal(false)} style={{ flex: 1, padding: '12px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>닫기</button>
-              <button onClick={() => {
-                if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
-                  alert('모든 필드를 정확히 입력해 주세요.');
-                  return;
-                }
-                const newReport = {
-                  id: Date.now(),
-                  reqDate: getLocalISODate(),
-                  dept: formDept,
-                  name: formName,
-                  line: formLine,
-                  station: formStation,
-                  type: formType,
-                  desc: formDesc,
-                  kw: parseFloat(formKw),
-                  hours: parseFloat(formHours),
-                  applyDate: formApplyDate,
-                  status: '확인중',
-                  substation: ''
-                };
-                setReports([newReport, ...reports]);
-                alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
-                setShowNewReportModal(false);
-                setFormStation('');
-                setFormDesc('');
-                setFormKw('');
-              }} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>신고서 제출</button>
+              <button onClick={handleSubmitNewReport} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>신고서 제출</button>
             </div>
           </div>
         </div>
