@@ -488,6 +488,7 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}>
       
+      {/* 상단 네비게이션 헤더 */}
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           
@@ -519,6 +520,7 @@ export default function Dashboard() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
+        {/* 좌측 사이드바 */}
         {mainTab !== 'report' && (
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
@@ -553,6 +555,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* 메인 화면 영역 */}
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
           
           {/* ===================== [1. 통합 대시보드 탭] ===================== */}
@@ -801,7 +804,6 @@ export default function Dashboard() {
                       </button>
                     </>
                   ) : (
-                    // 🌟 일반 아이디 접속 시 불필요한 서버 연동 UI 제거 (미연동 경고만 남김)
                     !isDatasetReady && (
                       <div style={{ padding: '10px 16px', backgroundColor: '#FEF2F2', color: theme.danger, borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: '1px solid #FECACA' }}>
                         ⚠️ 데이터셋 미연동 (관리자 문의)
@@ -935,7 +937,6 @@ export default function Dashboard() {
                       </button>
                     </>
                   ) : (
-                    // 🌟 일반 아이디 접속 시 불필요한 서버 연동 UI 제거 (미연동 경고만 남김)
                     !isDatasetReady && (
                       <div style={{ padding: '10px 16px', backgroundColor: '#FEF2F2', color: theme.danger, borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: '1px solid #FECACA' }}>
                         ⚠️ 데이터셋 미연동 (관리자 문의)
@@ -1044,10 +1045,11 @@ export default function Dashboard() {
                   </Card>
                 </div>
               ) : (
+                // 🌟 문구 및 아이콘 변경: AI 수요 예측 유도 메시지
                 <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '80px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
-                  <span style={{ fontSize: '3rem' }}>📁</span>
-                  <h3 style={{ color: theme.textMain, marginTop: '16px', marginBottom: '8px' }}>데이터를 기다리고 있습니다</h3>
-                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>서버에 연동된 데이터셋이 있다면 우측 상단의 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
+                  <span style={{ fontSize: '3rem' }}>📈</span>
+                  <h3 style={{ color: theme.textMain, marginTop: '16px', marginBottom: '8px' }}>시뮬레이션 대기 중</h3>
+                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>시뮬레이션 변수 조정 후 우측 상단의 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
                 </div>
               )}
             </div>
