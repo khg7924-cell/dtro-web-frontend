@@ -7,6 +7,10 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
+// 🌟 Firebase 실시간 연동 부활! (경로 에러 나지 않도록 깊이 조절 유지)
+import { db } from '../../firebase'; 
+import { ref, push, onValue, update, remove } from 'firebase/database';
+
 const API_URL = 'https://dtro-api.onrender.com'; 
 
 const theme = {
@@ -51,6 +55,26 @@ export default function Dashboard() {
     setUserId(storedId);
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
+
+    // 🌟 Firebase 실시간 리스너 작동 (다른 PC에서 입력해도 즉각 동기화)
+    try {
+      const reportsRef = ref(db, 'load_reports');
+      const unsubscribe = onValue(reportsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const loadedReports = Object.keys(data).map(key => ({
+            id: key,
+            ...data[key]
+          }));
+          setReports(loadedReports.reverse()); 
+        } else {
+          setReports([]);
+        }
+      });
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Firebase DB 연결 실패. db 경로 설정을 확인하세요.", error);
+    }
   }, []);
 
   const [mainTab, setMainTab] = useState('dashboard');
@@ -102,14 +126,13 @@ export default function Dashboard() {
 
   const [showNewReportModal, setShowNewReportModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [mappedSubstation, setMappedSubstation] = useState('');
   
-  // 🌟 부하증감 데이터 상태 (기본 빈 배열)
   const [reports, setReports] = useState<any[]>([]);
   
-  // 🌟 관리자 전용 삭제용 체크박스 상태
-  const [selectedForDeletion, setSelectedForDeletion] = useState<number[]>([]);
+  // 🌟 Firebase ID는 문자열(string)이므로 string 배열로 타입 변경
+  const [selectedForDeletion, setSelectedForDeletion] = useState<string[]>([]);
 
   const [formDept, setFormDept] = useState('');
   const [formName, setFormName] = useState('');
@@ -120,7 +143,6 @@ export default function Dashboard() {
   const [formDesc, setFormDesc] = useState('');
   const [formKw, setFormKw] = useState('');
   
-  // 🌟 시작시간, 종료시간 입력 상태로 변경
   const [formStartTime, setFormStartTime] = useState('05:00');
   const [formEndTime, setFormEndTime] = useState('24:00');
 
@@ -129,11 +151,10 @@ export default function Dashboard() {
     if (!start || !end) return 0;
     const [sh, sm] = start.split(':').map(Number);
     let [eh, em] = end.split(':').map(Number);
-    // 24:00 입력을 허용하기 위한 처리 (일부 브라우저 시간 입력 지원)
     if (end === "24:00") { eh = 24; em = 0; }
     
     let diffMins = (eh * 60 + em) - (sh * 60 + sm);
-    if (diffMins <= 0) diffMins += 24 * 60; // 자정을 넘기는 경우 처리
+    if (diffMins <= 0) diffMins += 24 * 60; 
     
     return parseFloat((diffMins / 60).toFixed(1));
   };
@@ -159,65 +180,85 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 🌟 새 신고서 로컬 State에 저장 (가동시간 반영)
-  const handleSubmitNewReport = () => {
+  // 🌟 Firebase에 신규 신고서 제출 (자동 시간 연산 적용)
+  const handleSubmitNewReport = async () => {
     if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 정확히 입력해 주세요.');
       return;
     }
 
-    const newReport = {
-      id: Date.now(),
-      reqDate: getLocalISODate(),
-      dept: formDept,
-      name: formName,
-      line: formLine,
-      station: formStation,
-      type: formType,
-      desc: formDesc,
-      kw: parseFloat(formKw),
-      startTime: formStartTime,
-      endTime: formEndTime,
-      hours: formCalculatedHours,
-      applyDate: formApplyDate,
-      status: '확인중',
-      substation: ''
-    };
+    try {
+      const reportsRef = ref(db, 'load_reports');
+      await push(reportsRef, {
+        reqDate: getLocalISODate(),
+        dept: formDept,
+        name: formName,
+        line: formLine,
+        station: formStation,
+        type: formType,
+        desc: formDesc,
+        kw: parseFloat(formKw),
+        startTime: formStartTime,
+        endTime: formEndTime,
+        hours: formCalculatedHours,
+        applyDate: formApplyDate,
+        status: '확인중',
+        substation: ''
+      });
 
-    setReports([newReport, ...reports]);
-    alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
-    setShowNewReportModal(false);
-    setFormStation('');
-    setFormDesc('');
-    setFormKw('');
+      alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
+      setShowNewReportModal(false);
+      setFormStation('');
+      setFormDesc('');
+      setFormKw('');
+    } catch (e: any) {
+      alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${e.message}\nFirebase Database 규칙을 확인해주세요.`);
+    }
   };
 
-  const handleConfirmReport = (id: number) => {
+  const handleConfirmReport = (id: string) => {
     setSelectedReportId(id);
     setMappedSubstation('');
     setShowMappingModal(true);
   };
 
-  // 🌟 관리자 매핑 확인
-  const submitMapping = () => {
-    if (!mappedSubstation || selectedReportId === null) {
+  // 🌟 Firebase 관리자 매핑 승인 업데이트
+  const submitMapping = async () => {
+    if (!mappedSubstation || !selectedReportId) {
       alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
       return;
     }
-    setReports(reports.map(r => r.id === selectedReportId ? { ...r, status: '확인', substation: mappedSubstation } : r));
-    alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
-    setShowMappingModal(false);
+
+    try {
+      const reportRef = ref(db, `load_reports/${selectedReportId}`);
+      await update(reportRef, {
+        status: '확인',
+        substation: mappedSubstation
+      });
+      alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
+      setShowMappingModal(false);
+    } catch (e: any) {
+      alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${e.message}`);
+    }
   };
 
-  // 🌟 관리자 매핑 해제 버튼 기능
-  const handleUnmapReport = (id: number) => {
+  // 🌟 Firebase 관리자 매핑 해제 기능
+  const handleUnmapReport = async (id: string) => {
     if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
-      setReports(reports.map(r => r.id === id ? { ...r, status: '확인중', substation: '' } : r));
+      try {
+        const reportRef = ref(db, `load_reports/${id}`);
+        await update(reportRef, {
+          status: '확인중',
+          substation: ''
+        });
+      } catch (e: any) {
+        alert(`해제 중 오류가 발생했습니다.\n상세 사유: ${e.message}`);
+      }
     }
   };
 
   // 🌟 관리자 선택 삭제 체크 토글 기능
-  const toggleSelectForDeletion = (id: number) => {
+  const toggleSelectForDeletion = (id: string) => {
     if (selectedForDeletion.includes(id)) {
       setSelectedForDeletion(selectedForDeletion.filter(item => item !== id));
     } else {
@@ -225,11 +266,19 @@ export default function Dashboard() {
     }
   };
 
-  // 🌟 관리자 선택 항목 전체 삭제 실행
-  const handleDeleteSelected = () => {
+  // 🌟 Firebase 관리자 선택 항목 일괄 삭제 실행
+  const handleDeleteSelected = async () => {
     if (window.confirm(`선택한 ${selectedForDeletion.length}개의 신고 내역을 완전히 삭제하시겠습니까?`)) {
-      setReports(reports.filter(r => !selectedForDeletion.includes(r.id)));
-      setSelectedForDeletion([]);
+      try {
+        // Promise.all을 사용하여 병렬로 삭제 처리
+        await Promise.all(
+          selectedForDeletion.map(id => remove(ref(db, `load_reports/${id}`)))
+        );
+        setSelectedForDeletion([]); // 삭제 후 선택 배열 초기화
+        alert('선택한 신고 내역이 정상적으로 삭제되었습니다.');
+      } catch (e: any) {
+        alert(`삭제 중 오류가 발생했습니다: ${e.message}`);
+      }
     }
   };
 
@@ -344,10 +393,8 @@ export default function Dashboard() {
     setFeatChartData([]);
 
     try {
-      const confirmedReports = reports.filter(r => r.status === '확인');
-      const reportsParam = encodeURIComponent(JSON.stringify(confirmedReports));
-      
-      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}&reports_data=${reportsParam}`);
+      // 이제 백엔드 서버도 이 Firebase를 직접 읽으므로 reports 파라미터를 보낼 필요가 없습니다. (api_server.py가 알아서 가져감)
+      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
       const result = await response.json();
       
       if (result.error) { alert(result.error); setPredLoading(false); return; }
@@ -1105,7 +1152,6 @@ export default function Dashboard() {
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {/* 🌟 관리자 전용 일괄 삭제 버튼 */}
                   {isAdmin && selectedForDeletion.length > 0 && (
                     <button onClick={handleDeleteSelected} style={{ padding: '10px 20px', backgroundColor: '#FEE2E2', color: theme.danger, border: `1px solid ${theme.danger}`, borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
                       🗑️ 선택 삭제 ({selectedForDeletion.length})
@@ -1122,7 +1168,6 @@ export default function Dashboard() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '14px', whiteSpace: 'nowrap' }}>
                     <thead style={{ backgroundColor: '#F8FAFC', color: theme.textMuted }}>
                       <tr>
-                        {/* 🌟 관리자 전용 체크박스 헤더 */}
                         {isAdmin && <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, width: '40px' }}>선택</th>}
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>등록일</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>담당부서(자)</th>
@@ -1142,7 +1187,6 @@ export default function Dashboard() {
                       ) : (
                         reports.map((row) => (
                           <tr key={row.id} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: selectedForDeletion.includes(row.id) ? '#FEF2F2' : '#FFF' }}>
-                            {/* 🌟 관리자 전용 체크박스 바디 */}
                             {isAdmin && (
                               <td style={{ padding: '16px' }}>
                                 <input 
@@ -1301,7 +1345,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* 🌟 가동시간 입력 및 자동 연산 영역 */}
               <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: theme.textMain, marginBottom: '12px' }}>일일 가동 시간 설정</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1315,6 +1358,7 @@ export default function Dashboard() {
                       style={{ flex: 1, padding: '10px', border: 'none', outline: 'none' }} 
                     />
                     <button 
+                      type="button"
                       onClick={() => setFormEndTime('24:00')} 
                       style={{ padding: '0 12px', backgroundColor: formEndTime === '24:00' ? theme.primary : '#E2E8F0', color: formEndTime === '24:00' ? '#FFF' : theme.textMain, border: 'none', borderLeft: `1px solid ${theme.border}`, cursor: 'pointer', height: '100%', fontSize: '12px', fontWeight: 700 }}
                     >
