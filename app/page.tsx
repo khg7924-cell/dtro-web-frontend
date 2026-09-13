@@ -70,7 +70,7 @@ export default function LoginPage() {
 
       await signOut(auth);
       
-      alert('회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.');
+      alert('계정 등록 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.');
       setDepartment(''); 
       setPassword('');
       setIsLoginMode(true);
@@ -79,7 +79,7 @@ export default function LoginPage() {
       if (error.code === 'auth/email-already-in-use') {
         alert('이미 사용 중인 아이디입니다.');
       } else {
-        alert('회원가입 신청 중 오류가 발생했습니다. (' + error.message + ')');
+        alert('계정 등록 신청 중 오류가 발생했습니다. (' + error.message + ')');
       }
     }
   };
@@ -90,8 +90,16 @@ export default function LoginPage() {
       {/* 왼쪽: 브랜드 및 안내 영역 */}
       <div style={{ flex: 1, backgroundColor: '#0F172A', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 2 }}>
-          {/* 🌟 타이틀 변경 반영 */}
-          <h1 style={{ fontSize: '3rem', fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-1px' }}>DTRO 스마트 전력 플랫폼</h1>
+          
+          {/* 🌟 명칭 변경 반영: DTRO 스마트 에너지 관리 시스템 (SEMS) */}
+          <h1 style={{ margin: '0 0 4px 0', fontSize: '3.2rem', fontFamily: 'sans-serif', letterSpacing: '-1.5px' }}>
+            <span style={{ fontWeight: 900, color: '#0F62FE' }}>DTRO</span>
+            <span style={{ fontWeight: 300, color: '#FFFFFF' }}> 스마트 에너지 관리 시스템</span>
+          </h1>
+          <div style={{ fontSize: '1.15rem', color: '#94A3B8', letterSpacing: '3px', fontWeight: 700, marginBottom: '32px' }}>
+            S E M S <span style={{ color: '#475569', fontWeight: 400, letterSpacing: '0px', marginLeft: '6px' }}>| Smart Energy Management System</span>
+          </div>
+
           <p style={{ fontSize: '1.2rem', color: '#94A3B8', margin: '0 0 40px 0', lineHeight: 1.6 }}>
             대구교통공사 빅데이터 통합 관제 플랫폼<br />
             기상, 대기질, 전력 데이터를 AI로 정밀 분석합니다.
@@ -113,11 +121,11 @@ export default function LoginPage() {
         <div style={{ backgroundColor: '#FFFFFF', padding: '48px', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)', width: '100%', maxWidth: '440px', border: '1px solid #E2E8F0' }}>
           
           <h2 style={{ margin: '0 0 8px 0', color: '#111827', fontSize: '1.8rem', fontWeight: 800 }}>
-            {isLoginMode ? '관리자 로그인' : '관리자 가입 신청'}
+            {isLoginMode ? '계정 로그인' : '계정 등록 신청'}
           </h2>
           <p style={{ margin: '0 0 32px 0', color: '#64748B', fontSize: '0.95rem' }}>
             {isLoginMode 
-              ? '접근 권한이 있는 아이디를 입력해 주세요.' 
+              ? '접근 권한이 있는 사내 계정을 입력해 주세요.' 
               : '가입 신청 후 관리자의 승인이 완료되어야 로그인이 가능합니다.'}
           </p>
           
@@ -142,7 +150,7 @@ export default function LoginPage() {
                 type="text" 
                 value={userId} 
                 onChange={(e) => setUserId(e.target.value)} 
-                placeholder={isLoginMode ? "아이디 입력" : "사용할 아이디 입력"}
+                placeholder={isLoginMode ? "아이디 입력" : "사용할 사번/아이디 입력"}
                 style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
               />
             </div>
@@ -162,7 +170,7 @@ export default function LoginPage() {
               type="submit" 
               style={{ width: '100%', padding: '16px', marginTop: '12px', backgroundColor: isLoginMode ? '#0F62FE' : '#8A3FFC', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}
             >
-              {isLoginMode ? '로그인' : '가입 신청하기'}
+              {isLoginMode ? '로그인' : '계정 등록 신청'}
             </button>
           </form>
           
@@ -174,7 +182,7 @@ export default function LoginPage() {
                   onClick={() => setIsLoginMode(false)}
                   style={{ color: '#0F62FE', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
                 >
-                  회원가입 신청
+                  계정 등록 신청
                 </span>
               </p>
             ) : (
@@ -184,7 +192,7 @@ export default function LoginPage() {
                   onClick={() => setIsLoginMode(true)}
                   style={{ color: '#0F62FE', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
                 >
-                  로그인하기
+                  계정 로그인
                 </span>
               </p>
             )}
