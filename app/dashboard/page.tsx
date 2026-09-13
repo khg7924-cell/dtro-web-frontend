@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-// 🌟 [수정 완료] 로그인 페이지와 동일한 경로 적용
+// Firebase 연결
 import { db } from '../firebase'; 
 import { ref, push, onValue, update } from 'firebase/database';
 
@@ -56,7 +56,7 @@ export default function Dashboard() {
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
 
-    // 🌟 Firebase 실시간 리스너 연동
+    // Firebase 실시간 리스너 연동 (데이터가 바뀌면 즉시 화면 갱신)
     try {
       const reportsRef = ref(db, 'load_reports');
       const unsubscribe = onValue(reportsRef, (snapshot) => {
@@ -66,6 +66,7 @@ export default function Dashboard() {
             id: key,
             ...data[key]
           }));
+          // 최신 글이 위로 오도록 배열을 뒤집습니다.
           setReports(loadedReports.reverse()); 
         } else {
           setReports([]);
@@ -129,12 +130,13 @@ export default function Dashboard() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [mappedSubstation, setMappedSubstation] = useState('');
   
+  // 🌟 가짜 데이터(더미)를 모두 제거하고 완전히 빈 상태로 시작합니다.
   const [reports, setReports] = useState<any[]>([]);
 
   const [formDept, setFormDept] = useState('');
   const [formName, setFormName] = useState('');
   const [formLine, setFormLine] = useState('1호선');
-  const [formStation, setFormStation] = useState('반월당');
+  const [formStation, setFormStation] = useState('');
   const [formType, setFormType] = useState('증설(+)');
   const [formApplyDate, setFormApplyDate] = useState(getLocalISODate());
   const [formDesc, setFormDesc] = useState('');
@@ -160,10 +162,10 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 🌟 Firebase 신고서 제출 로직
+  // 🌟 Firebase 신고서 제출
   const handleSubmitNewReport = async () => {
-    if (!formDept.trim() || !formName.trim() || !formDesc.trim() || !formKw.trim()) {
-      alert('모든 필드를 입력해 주세요.');
+    if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
+      alert('모든 필드를 정확히 입력해 주세요.');
       return;
     }
 
@@ -186,6 +188,7 @@ export default function Dashboard() {
 
       alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
       setShowNewReportModal(false);
+      setFormStation('');
       setFormDesc('');
       setFormKw('');
     } catch (e: any) {
@@ -211,7 +214,7 @@ export default function Dashboard() {
         status: '확인',
         substation: mappedSubstation
       });
-      alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 가산/차감됩니다.`);
+      alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
       setShowMappingModal(false);
     } catch (e: any) {
       alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${e.message}`);
@@ -1079,6 +1082,7 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
+                  {/* 🌟 명칭 완전 수정: 부하증감 신고 */}
                   <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>부하증감 신고</h2>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#FEF2F2', color: theme.danger, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>📝</span> 역사 및 기지 내 신설/철거 설비의 전력 정보를 계통에 매핑합니다.
@@ -1213,12 +1217,15 @@ export default function Dashboard() {
                 <input type="text" placeholder="담당자 성명" value={formName} onChange={e => setFormName(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
               </div>
               <div style={{ display: 'flex', gap: '16px' }}>
+                {/* 🌟 호선 선택 콤보박스 (종합청사 추가) */}
                 <select value={formLine} onChange={e => setFormLine(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
                   <option value="1호선">1호선</option>
                   <option value="2호선">2호선</option>
                   <option value="3호선">3호선</option>
+                  <option value="종합청사">종합청사</option>
                 </select>
-                <input type="text" placeholder="설치/철거 역사명 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                {/* 🌟 설치 역사명 직접 작성 칸 */}
+                <input type="text" placeholder="설치/철거 역사명 직접 입력 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
               </div>
               <div style={{ display: 'flex', gap: '16px' }}>
                 <select value={formType} onChange={e => setFormType(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
