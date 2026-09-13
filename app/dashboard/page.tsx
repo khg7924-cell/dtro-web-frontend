@@ -7,7 +7,6 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-// 🌟 Firebase 실시간 연동 (경로 깊이 유지)
 import { db } from '../../firebase'; 
 import { ref, push, onValue, update, remove } from 'firebase/database';
 
@@ -45,8 +44,8 @@ export default function Dashboard() {
         setIsDatasetReady(true);
         setDatasetDate(data.updated_at);
       }
-    } catch (e) {
-      console.error("데이터셋 상태 확인 실패", e);
+    } catch (err) {
+      console.error("데이터셋 상태 확인 실패", err);
     }
   };
 
@@ -56,7 +55,6 @@ export default function Dashboard() {
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
 
-    // Firebase 실시간 리스너 작동 (다른 PC에서 입력해도 즉각 동기화)
     try {
       const reportsRef = ref(db, 'load_reports');
       const unsubscribe = onValue(reportsRef, (snapshot) => {
@@ -72,8 +70,8 @@ export default function Dashboard() {
         }
       });
       return () => unsubscribe();
-    } catch (error) {
-      console.error("Firebase DB 연결 실패. db 경로 설정을 확인하세요.", error);
+    } catch (err) {
+      console.error("Firebase DB 연결 실패. db 경로 설정을 확인하세요.", err);
     }
   }, []);
 
@@ -113,7 +111,6 @@ export default function Dashboard() {
   const [tempAdj, setTempAdj] = useState('+1.5');
   const [winterTempAdj, setWinterTempAdj] = useState('-2.0');
   const [pm25Adj, setPm25Adj] = useState('+15');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [predLoading, setPredLoading] = useState(false);
   const [predSummary, setPredSummary] = useState<any>(null);
   const [predChartData, setPredChartData] = useState<any[]>([]);
@@ -145,7 +142,6 @@ export default function Dashboard() {
   const [formStartTime, setFormStartTime] = useState('05:00');
   const [formEndTime, setFormEndTime] = useState('24:00');
 
-  // 가동 시간 자동 계산 함수
   const calculateHours = (start: string, end: string) => {
     if (!start || !end) return 0;
     const [sh, sm] = start.split(':').map(Number);
@@ -179,7 +175,6 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // Firebase에 신규 신고서 제출
   const handleSubmitNewReport = async () => {
     if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 정확히 입력해 주세요.');
@@ -210,8 +205,8 @@ export default function Dashboard() {
       setFormStation('');
       setFormDesc('');
       setFormKw('');
-    } catch (e: any) {
-      alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${e.message}\nFirebase Database 규칙을 확인해주세요.`);
+    } catch (err: any) {
+      alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${err.message}\nFirebase Database 규칙을 확인해주세요.`);
     }
   };
 
@@ -221,7 +216,6 @@ export default function Dashboard() {
     setShowMappingModal(true);
   };
 
-  // Firebase 관리자 매핑 승인 업데이트
   const submitMapping = async () => {
     if (!mappedSubstation || !selectedReportId) {
       alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
@@ -236,12 +230,11 @@ export default function Dashboard() {
       });
       alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
       setShowMappingModal(false);
-    } catch (e: any) {
-      alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${e.message}`);
+    } catch (err: any) {
+      alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
     }
   };
 
-  // Firebase 관리자 매핑 해제 기능
   const handleUnmapReport = async (id: string) => {
     if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
       try {
@@ -250,13 +243,12 @@ export default function Dashboard() {
           status: '확인중',
           substation: ''
         });
-      } catch (e: any) {
-        alert(`해제 중 오류가 발생했습니다.\n상세 사유: ${e.message}`);
+      } catch (err: any) {
+        alert(`해제 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
       }
     }
   };
 
-  // 관리자 선택 삭제 체크 토글 기능
   const toggleSelectForDeletion = (id: string) => {
     if (selectedForDeletion.includes(id)) {
       setSelectedForDeletion(selectedForDeletion.filter(item => item !== id));
@@ -265,17 +257,16 @@ export default function Dashboard() {
     }
   };
 
-  // Firebase 관리자 선택 항목 일괄 삭제 실행
   const handleDeleteSelected = async () => {
     if (window.confirm(`선택한 ${selectedForDeletion.length}개의 신고 내역을 완전히 삭제하시겠습니까?`)) {
       try {
         await Promise.all(
           selectedForDeletion.map(id => remove(ref(db, `load_reports/${id}`)))
         );
-        setSelectedForDeletion([]); // 삭제 후 선택 배열 초기화
+        setSelectedForDeletion([]); 
         alert('선택한 신고 내역이 정상적으로 삭제되었습니다.');
-      } catch (e: any) {
-        alert(`삭제 중 오류가 발생했습니다: ${e.message}`);
+      } catch (err: any) {
+        alert(`삭제 중 오류가 발생했습니다: ${err.message}`);
       }
     }
   };
@@ -357,7 +348,7 @@ export default function Dashboard() {
         setChartData(records.map((r: any) => ({ ...r, date: r.date.substring(5) })));
       }
       setExpandedRows({});
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
   const fetchRealtimeData = async () => {
@@ -367,7 +358,7 @@ export default function Dashboard() {
       const result = await response.json();
       if (result.error) { alert(result.error); setRealtimeLoading(false); return; }
       setRealtimeData(result.records || []);
-    } catch (error) { console.error(error); } finally { setRealtimeLoading(false); }
+    } catch (err) { console.error(err); } finally { setRealtimeLoading(false); }
   };
 
   const fetchCompareData = async () => {
@@ -380,7 +371,7 @@ export default function Dashboard() {
       setCompRecords(result.records || []);
       setCompSummary(result.summary || {});
       setAiReport(result.summary?.ai_report || '리포트 생성 중 오류가 발생했습니다.');
-    } catch (error) { console.error(error); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
+    } catch (err) { console.error(err); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
   };
 
   const runAIPrediction = async () => {
@@ -398,7 +389,7 @@ export default function Dashboard() {
       setPredSummary(result.summary); 
       setPredChartData(result.chart_data); 
       setFeatChartData(result.feat_data);
-    } catch (error) { alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
+    } catch (err) { console.error(err); alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
   };
 
   const fetchBillData = async () => {
@@ -414,7 +405,8 @@ export default function Dashboard() {
       if (result.error) { alert(result.error); setBillRecords([]); setBillLoading(false); return; }
       setBillRecords(result.records || []);
       setBillCustNo(result.cust_no || '');
-    } catch(e) {
+    } catch(err) {
+      console.error(err);
       alert("전기요금 서버 통신 에러");
     } finally { setBillLoading(false); }
   };
@@ -499,7 +491,8 @@ export default function Dashboard() {
       {/* 상단 네비게이션 헤더 */}
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>데이터센터 프로</span></h1>
+          {/* 🌟 타이틀 변경 반영 */}
+          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>스마트 전력 플랫폼</span></h1>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => setMainTab('dashboard')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'dashboard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'dashboard' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>⚡ 통합 대시보드</button>
             <button onClick={() => setMainTab('compare')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'compare' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'compare' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>📊 연도별 비교</button>
@@ -1285,7 +1278,7 @@ export default function Dashboard() {
       {showNewReportModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '500px', boxShadow: theme.shadow }}>
-            {/* 🌟 명칭 수정: 설비 부하증감 신고서 */}
+            {/* 🌟 텍스트 디테일 변경 반영 */}
             <h3 style={{ margin: '0 0 16px 0', color: theme.textMain, fontWeight: 800 }}>📝 설비 부하증감 신고서</h3>
             <p style={{ margin: '0 0 24px 0', color: theme.textMuted, fontSize: '14px' }}>
               전력 예측 시스템에 반영될 역사 내 설비 변동 사항을 입력해 주세요.
@@ -1364,7 +1357,7 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
-                {/* 🌟 텍스트 단순화 */}
+                {/* 🌟 텍스트 단순화 반영 */}
                 <div style={{ marginTop: '12px', textAlign: 'right', fontSize: '14px', fontWeight: 700, color: theme.primary }}>
                   {formCalculatedHours} 시간/일
                 </div>

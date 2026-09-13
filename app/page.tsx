@@ -35,9 +35,7 @@ export default function LoginPage() {
         const userData = snapshot.val();
         if (userData.isApproved === true) {
           
-          // 🌟 [핵심 수정 포인트] 로그인 성공 시 대시보드에서 쓸 수 있도록 아이디를 브라우저에 저장!
           localStorage.setItem('userId', userId);
-          
           router.push('/dashboard'); 
         } else {
           await signOut(auth); 
@@ -92,7 +90,8 @@ export default function LoginPage() {
       {/* 왼쪽: 브랜드 및 안내 영역 */}
       <div style={{ flex: 1, backgroundColor: '#0F172A', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 2 }}>
-          <h1 style={{ fontSize: '3rem', fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-1px' }}>DTRO 데이터센터 프로</h1>
+          {/* 🌟 타이틀 변경 반영 */}
+          <h1 style={{ fontSize: '3rem', fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-1px' }}>DTRO 스마트 전력 플랫폼</h1>
           <p style={{ fontSize: '1.2rem', color: '#94A3B8', margin: '0 0 40px 0', lineHeight: 1.6 }}>
             대구교통공사 빅데이터 통합 관제 플랫폼<br />
             기상, 대기질, 전력 데이터를 AI로 정밀 분석합니다.
