@@ -6,6 +6,8 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
+import { db } from '../firebase'; // 🌟 기존 로그인에서 사용 중인 firebase 인스턴스
+import { ref, push, onValue, update } from 'firebase/database';
 
 const API_URL = 'https://dtro-api.onrender.com'; 
 
@@ -28,7 +30,6 @@ const getLocalISODate = (d?: Date) => {
 export default function Dashboard() {
   const router = useRouter();
   
-  // 🌟 권한 및 서버 연동 상태
   const [userId, setUserId] = useState(''); 
   const [isAdmin, setIsAdmin] = useState(false);
   const [isDatasetReady, setIsDatasetReady] = useState(false);
@@ -52,13 +53,29 @@ export default function Dashboard() {
     setUserId(storedId);
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
+
+    // 🌟 Firebase 실시간 리스너: 부하증감 신고 데이터 자동 동기화
+    const reportsRef = ref(db, 'load_reports');
+    const unsubscribe = onValue(reportsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const loadedReports = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        }));
+        setReports(loadedReports.reverse()); // 최신순 정렬
+      } else {
+        setReports([]);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const [mainTab, setMainTab] = useState('dashboard');
   const [station, setStation] = useState('전체');
   const [mappedLocation, setMappedLocation] = useState('대구 전체');
   
-  // 🌟 통합 대시보드 상태
   const [chartData, setChartData] = useState<any[]>([]);
   const [rawRecords, setRawRecords] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,7 +95,6 @@ export default function Dashboard() {
   });
   const [endDate, setEndDate] = useState(() => getLocalISODate());
 
-  // 🌟 연도별 비교 상태
   const [baseYear, setBaseYear] = useState('2024');
   const [compYear, setCompYear] = useState('2025');
   const [unitPrice, setUnitPrice] = useState('150');
@@ -87,7 +103,6 @@ export default function Dashboard() {
   const [compLoading, setCompLoading] = useState(false);
   const [aiReport, setAiReport] = useState('');
 
-  // 🌟 AI 수요 예측 상태
   const [targetYear, setTargetYear] = useState('2026');
   const [passRate, setPassRate] = useState('5.0');
   const [tempAdj, setTempAdj] = useState('+1.5');
@@ -99,21 +114,28 @@ export default function Dashboard() {
   const [predChartData, setPredChartData] = useState<any[]>([]);
   const [featChartData, setFeatChartData] = useState<any[]>([]);
 
-  // 🌟 전기요금 상태
   const [billYear, setBillYear] = useState('2026');
   const [billRecords, setBillRecords] = useState<any[]>([]);
   const [billLoading, setBillLoading] = useState(false);
   const [billCustNo, setBillCustNo] = useState('');
 
-  // 🌟 부하증감 신고 탭 상태 (UI 테스트용 데이터)
+  // 🌟 부하증감 신고 탭 모달 및 폼 상태
   const [showNewReportModal, setShowNewReportModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [mappedSubstation, setMappedSubstation] = useState('');
-  const [reports, setReports] = useState([
-    { id: 1, reqDate: '2026-09-10', dept: '건축설비처', name: '홍길동', line: '1호선', station: '반월당', type: '증설(+)', desc: '3번 출구 에스컬레이터 2기 신설', kw: 45, hours: 19, applyDate: '2026-10-01', status: '확인중', substation: '' },
-    { id: 2, reqDate: '2026-09-12', dept: '통신처', name: '김철수', line: '2호선', station: '대구은행', type: '철거(-)', desc: '구형 통신장비 철거 및 교체', kw: 10, hours: 24, applyDate: '2026-09-20', status: '확인', substation: '대구은행' }
-  ]);
+  const [reports, setReports] = useState<any[]>([]);
+
+  // 신규 작성 폼 상태
+  const [formDept, setFormDept] = useState('');
+  const [formName, setFormName] = useState('');
+  const [formLine, setFormLine] = useState('1호선');
+  const [formStation, setFormStation] = useState('반월당');
+  const [formType, setFormType] = useState('증설(+)');
+  const [formApplyDate, setFormApplyDate] = useState(getLocalISODate());
+  const [formDesc, setFormDesc] = useState('');
+  const [formKw, setFormKw] = useState('');
+  const [formHours, setFormHours] = useState('19');
 
   const substationList = [
     '설화명곡', '서부정류장', '반월당', '신천', '방촌', '안심', '숙천', '금락',
@@ -134,7 +156,65 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // ===================== [핵심 기능 함수들 (원상복구)] =====================
+  // 🌟 Firebase 신고서 제출
+  const handleSubmitNewReport = async () => {
+    if (!formDept.trim() || !formName.trim() || !formDesc.trim() || !formKw.trim()) {
+      alert('모든 필드를 입력해 주세요.');
+      return;
+    }
+
+    try {
+      const reportsRef = ref(db, 'load_reports');
+      await push(reportsRef, {
+        reqDate: getLocalISODate(),
+        dept: formDept,
+        name: formName,
+        line: formLine,
+        station: formStation,
+        type: formType,
+        desc: formDesc,
+        kw: parseFloat(formKw),
+        hours: parseFloat(formHours),
+        applyDate: formApplyDate,
+        status: '확인중',
+        substation: ''
+      });
+
+      alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
+      setShowNewReportModal(false);
+      setFormDesc('');
+      setFormKw('');
+    } catch (e) {
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 🌟 관리자 급전 계통(변전소) 매핑 및 확인 처리
+  const handleConfirmReport = (id: string) => {
+    setSelectedReportId(id);
+    setMappedSubstation('');
+    setShowMappingModal(true);
+  };
+
+  const submitMapping = async () => {
+    if (!mappedSubstation || !selectedReportId) {
+      alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
+      return;
+    }
+
+    try {
+      const reportRef = ref(db, `load_reports/${selectedReportId}`);
+      await update(reportRef, {
+        status: '확인',
+        substation: mappedSubstation
+      });
+      alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 가산/차감됩니다.`);
+      setShowMappingModal(false);
+    } catch (e) {
+      alert('업데이트 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleMasterBackup = () => {
     if (!isDatasetReady) {
       alert("베이스가 될 기존 통합 데이터셋이 서버에 없습니다. 먼저 업로드해주세요.");
@@ -150,36 +230,18 @@ export default function Dashboard() {
       formData.append("file", file);
 
       try {
-        const res = await fetch(`${API_URL}/api/upload`, {
-          method: 'POST',
-          body: formData
-        });
+        const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData });
         if (res.ok) {
           setUploadedFile(file);
-          alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.\n이제 모든 사용자가 분석 기능을 사용할 수 있습니다.`);
+          alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.`);
           checkDatasetStatus(); 
         } else {
-          alert("파일 업로드에 실패했습니다. (서버 응답 오류)");
+          alert("파일 업로드에 실패했습니다.");
         }
       } catch (error) {
         alert("백엔드 서버가 켜져 있는지 확인해 주세요.");
       }
     }
-  };
-
-  const handleConfirmReport = (id: number) => {
-    setSelectedReportId(id);
-    setMappedSubstation('');
-    setShowMappingModal(true);
-  };
-
-  const submitMapping = () => {
-    if (!mappedSubstation) {
-      alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
-      return;
-    }
-    setReports(reports.map(r => r.id === selectedReportId ? { ...r, status: '확인', substation: mappedSubstation } : r));
-    setShowMappingModal(false);
   };
 
   const fetchDashboardData = async () => {
@@ -188,16 +250,10 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
       const result = await response.json();
-      
-      if (result.error) {
-        alert(result.error);
-        setLoading(false);
-        return;
-      }
+      if (result.error) { alert(result.error); setLoading(false); return; }
 
       const records = result.daily_records || [];
-      const reversedRecords = [...records].reverse(); 
-      setRawRecords(reversedRecords);
+      setRawRecords([...records].reverse());
       setMappedLocation(result.mapped_location || '대구 전체');
       setSummary(result.summary || {});
 
@@ -244,19 +300,13 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_URL}/api/realtime/${encodeURIComponent(station)}`);
       const result = await response.json();
-      
-      if (result.error) {
-        alert(result.error);
-        setRealtimeLoading(false);
-        return;
-      }
+      if (result.error) { alert(result.error); setRealtimeLoading(false); return; }
       setRealtimeData(result.records || []);
     } catch (error) { console.error(error); } finally { setRealtimeLoading(false); }
   };
 
   const fetchCompareData = async () => {
     if (!isDatasetReady) { alert("서버에 연동된 데이터셋이 없습니다. 관리자에게 업로드를 요청하세요."); return; }
-    
     setCompLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
@@ -270,7 +320,6 @@ export default function Dashboard() {
 
   const runAIPrediction = async () => {
     if (!isDatasetReady) { alert("서버에 연동된 데이터셋이 없습니다. 관리자에게 업로드를 요청하세요."); return; }
-    
     setPredLoading(true);
     setPredSummary(null);
     setPredChartData([]);
@@ -280,7 +329,9 @@ export default function Dashboard() {
       const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setPredLoading(false); return; }
-      setPredSummary(result.summary); setPredChartData(result.chart_data); setFeatChartData(result.feat_data);
+      setPredSummary(result.summary); 
+      setPredChartData(result.chart_data); 
+      setFeatChartData(result.feat_data);
     } catch (error) { alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
   };
 
@@ -290,25 +341,16 @@ export default function Dashboard() {
       targetStation = '1호선';
       setStation('1호선');
     }
-    
     setBillLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/bill/${encodeURIComponent(targetStation)}?year=${billYear}`);
       const result = await response.json();
-      if (result.error) {
-        alert(result.error);
-        setBillRecords([]);
-        setBillLoading(false);
-        return;
-      }
+      if (result.error) { alert(result.error); setBillRecords([]); setBillLoading(false); return; }
       setBillRecords(result.records || []);
       setBillCustNo(result.cust_no || '');
     } catch(e) {
-      console.error(e);
       alert("전기요금 서버 통신 에러");
-    } finally {
-      setBillLoading(false);
-    }
+    } finally { setBillLoading(false); }
   };
 
   const handleExportExcel = () => {
@@ -353,7 +395,6 @@ export default function Dashboard() {
     link.setAttribute("download", `${station}_${billYear}년_전기요금청구내역.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
-  // =========================================================================
 
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
@@ -417,7 +458,6 @@ export default function Dashboard() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* 좌측 사이드바 (부하증감 탭에서는 숨김) */}
         {mainTab !== 'report' && (
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
@@ -452,7 +492,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 메인 화면 영역 */}
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
           
           {/* ===================== [1. 통합 대시보드 탭] ===================== */}
@@ -692,7 +731,6 @@ export default function Dashboard() {
                   <p style={{ margin: 0, color: theme.textMuted }}>동일 개소의 과거와 현재 전력 사용량 및 요금을 분석합니다.</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  
                   {isAdmin ? (
                     <>
                       <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
@@ -801,9 +839,7 @@ export default function Dashboard() {
                   {compLoading ? (
                     <p style={{ color: theme.secondary, fontWeight: 700 }}>AI가 데이터를 분석하고 있습니다... ⏳</p>
                   ) : aiReport ? (
-                    <>
-                      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: theme.textMain, fontSize: '15px', lineHeight: '1.7', margin: 0, fontWeight: 500 }}>{aiReport}</pre>
-                    </>
+                    <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: theme.textMain, fontSize: '15px', lineHeight: '1.7', margin: 0, fontWeight: 500 }}>{aiReport}</pre>
                   ) : <p style={{ color: theme.textMuted, fontWeight: 500 }}>비교 분석을 실행해 주세요.</p>}
                 </div>
               </Card>
@@ -1035,7 +1071,6 @@ export default function Dashboard() {
           {/* ===================== [5. 부하증감 신고 탭] ===================== */}
           {mainTab === 'report' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-              
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
                   <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>타 부서 설비 부하증감 관리</h2>
@@ -1069,45 +1104,49 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {reports.map((row) => (
-                        <tr key={row.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                          <td style={{ padding: '16px', color: theme.textMuted }}>{row.reqDate}</td>
-                          <td style={{ padding: '16px', fontWeight: 600 }}>{row.dept}<br/><span style={{fontSize:'12px', color:theme.textMuted}}>{row.name}</span></td>
-                          <td style={{ padding: '16px', fontWeight: 700 }}>{row.line} {row.station}</td>
-                          <td style={{ padding: '16px', fontWeight: 700, color: row.type.includes('+') ? theme.danger : theme.success }}>
-                            {row.type}
-                          </td>
-                          <td style={{ padding: '16px', textAlign: 'left', fontWeight: 500 }}>{row.desc}</td>
-                          <td style={{ padding: '16px', fontWeight: 700 }}>{row.kw} kW</td>
-                          <td style={{ padding: '16px', color: theme.textMuted }}>{row.hours} 시간</td>
-                          <td style={{ padding: '16px', fontWeight: 600 }}>{row.applyDate}</td>
-                          <td style={{ padding: '16px' }}>
-                            <span style={{ 
-                              padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
-                              backgroundColor: row.status === '확인중' ? '#FEF9C3' : '#ECFDF5',
-                              color: row.status === '확인중' ? '#A16207' : theme.success
-                            }}>
-                              {row.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: '16px' }}>
-                            {row.status === '확인중' ? (
-                              isAdmin ? (
-                                <button onClick={() => handleConfirmReport(row.id)} style={{ padding: '6px 12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}>
-                                  내용 확인 및 계통 연결
-                                </button>
+                      {reports.length === 0 ? (
+                        <tr><td colSpan={10} style={{ padding: '40px', color: theme.textMuted }}>등록된 부하증감 신고서가 없습니다.</td></tr>
+                      ) : (
+                        reports.map((row) => (
+                          <tr key={row.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                            <td style={{ padding: '16px', color: theme.textMuted }}>{row.reqDate}</td>
+                            <td style={{ padding: '16px', fontWeight: 600 }}>{row.dept}<br/><span style={{fontSize:'12px', color:theme.textMuted}}>{row.name}</span></td>
+                            <td style={{ padding: '16px', fontWeight: 700 }}>{row.line} {row.station}</td>
+                            <td style={{ padding: '16px', fontWeight: 700, color: row.type?.includes('+') ? theme.danger : theme.success }}>
+                              {row.type}
+                            </td>
+                            <td style={{ padding: '16px', textAlign: 'left', fontWeight: 500 }}>{row.desc}</td>
+                            <td style={{ padding: '16px', fontWeight: 700 }}>{row.kw} kW</td>
+                            <td style={{ padding: '16px', color: theme.textMuted }}>{row.hours} 시간</td>
+                            <td style={{ padding: '16px', fontWeight: 600 }}>{row.applyDate}</td>
+                            <td style={{ padding: '16px' }}>
+                              <span style={{ 
+                                padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+                                backgroundColor: row.status === '확인중' ? '#FEF9C3' : '#ECFDF5',
+                                color: row.status === '확인중' ? '#A16207' : theme.success
+                              }}>
+                                {row.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              {row.status === '확인중' ? (
+                                isAdmin ? (
+                                  <button onClick={() => handleConfirmReport(row.id)} style={{ padding: '6px 12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}>
+                                    내용 확인 및 계통 연결
+                                  </button>
+                                ) : (
+                                  <span style={{ color: theme.textMuted, fontSize: '13px' }}>관리자 확인 대기</span>
+                                )
                               ) : (
-                                <span style={{ color: theme.textMuted, fontSize: '13px' }}>관리자 확인 대기</span>
-                              )
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ color: theme.primary, fontWeight: 700, fontSize: '14px' }}>⚡ {row.substation}</span>
-                                <span style={{ color: theme.textMuted, fontSize: '11px' }}>(AI 예측 반영 완료)</span>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <span style={{ color: theme.primary, fontWeight: 700, fontSize: '14px' }}>⚡ {row.substation}</span>
+                                  <span style={{ color: theme.textMuted, fontSize: '11px' }}>(AI 예측 반영 완료)</span>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1118,7 +1157,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ===================== [관리자 전용] 급전 계통 매핑 모달 ===================== */}
+      {/* ===================== [관리자 전용] 급전 계통(변전소) 매핑 모달 ===================== */}
       {showMappingModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '400px', boxShadow: theme.shadow }}>
@@ -1159,28 +1198,39 @@ export default function Dashboard() {
           <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '500px', boxShadow: theme.shadow }}>
             <h3 style={{ margin: '0 0 16px 0', color: theme.textMain, fontWeight: 800 }}>📝 타 부서 설비 부하증감 신고서</h3>
             <p style={{ margin: '0 0 24px 0', color: theme.textMuted, fontSize: '14px' }}>
-              전력 예측 시스템에 반영될 역사 내 설비 변동 사항을 입력해 주세요. (지리적 역사 기준)
+              전력 예측 시스템에 반영될 역사 내 설비 변동 사항을 입력해 주세요.
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
               <div style={{ display: 'flex', gap: '16px' }}>
-                <select style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}><option>호선 선택</option></select>
-                <select style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}><option>설치/철거 역사 선택</option></select>
+                <input type="text" placeholder="담당부서 (예: 건축설비처)" value={formDept} onChange={e => setFormDept(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <input type="text" placeholder="담당자 성명" value={formName} onChange={e => setFormName(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
               </div>
               <div style={{ display: 'flex', gap: '16px' }}>
-                <select style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}><option>증설 (+)</option><option>철거 (-)</option></select>
-                <input type="date" style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <select value={formLine} onChange={e => setFormLine(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                  <option value="1호선">1호선</option>
+                  <option value="2호선">2호선</option>
+                  <option value="3호선">3호선</option>
+                </select>
+                <input type="text" placeholder="설치/철거 역사명 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
               </div>
-              <input type="text" placeholder="설비 내용 (예: 3번출구 E/S 신설)" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
               <div style={{ display: 'flex', gap: '16px' }}>
-                <input type="number" placeholder="소비전력 (kW)" style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
-                <input type="number" placeholder="일 평균 가동시간 (시간)" style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <select value={formType} onChange={e => setFormType(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                  <option value="증설(+)">증설 (+)</option>
+                  <option value="철거(-)">철거 (-)</option>
+                </select>
+                <input type="date" value={formApplyDate} onChange={e => setFormApplyDate(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+              </div>
+              <input type="text" placeholder="설비 내용 (예: 3번출구 E/S 2기 신설)" value={formDesc} onChange={e => setFormDesc(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <input type="number" placeholder="소비전력 (kW)" value={formKw} onChange={e => setFormKw(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
+                <input type="number" placeholder="일 평균 가동시간 (시간)" value={formHours} onChange={e => setFormHours(e.target.value)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }} />
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={() => setShowNewReportModal(false)} style={{ flex: 1, padding: '12px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>닫기</button>
-              <button onClick={() => { alert('신고가 접수되었습니다. (현재는 UI 테스트용입니다)'); setShowNewReportModal(false); }} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>제출하기</button>
+              <button onClick={handleSubmitNewReport} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>신고서 제출</button>
             </div>
           </div>
         </div>
