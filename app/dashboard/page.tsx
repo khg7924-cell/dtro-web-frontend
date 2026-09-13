@@ -7,10 +7,6 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-// 🌟 [핵심 수정] dashboard 폴더 깊이에 맞게 두 칸 뒤(../../)로 경로를 수정했습니다!
-import { db } from '../../firebase'; 
-import { ref, push, onValue, update } from 'firebase/database';
-
 const API_URL = 'https://dtro-api.onrender.com'; 
 
 const theme = {
@@ -45,8 +41,8 @@ export default function Dashboard() {
         setIsDatasetReady(true);
         setDatasetDate(data.updated_at);
       }
-    } catch (err) {
-      console.error("데이터셋 상태 확인 실패", err);
+    } catch (e) {
+      console.error("데이터셋 상태 확인 실패", e);
     }
   };
 
@@ -55,25 +51,6 @@ export default function Dashboard() {
     setUserId(storedId);
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
-
-    try {
-      const reportsRef = ref(db, 'load_reports');
-      const unsubscribe = onValue(reportsRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          const loadedReports = Object.keys(data).map(key => ({
-            id: key,
-            ...data[key]
-          }));
-          setReports(loadedReports.reverse()); 
-        } else {
-          setReports([]);
-        }
-      });
-      return () => unsubscribe();
-    } catch (err) {
-      console.error("Firebase DB 연결 실패. db 경로 설정을 확인하세요.", err);
-    }
   }, []);
 
   const [mainTab, setMainTab] = useState('dashboard');
@@ -112,6 +89,7 @@ export default function Dashboard() {
   const [tempAdj, setTempAdj] = useState('+1.5');
   const [winterTempAdj, setWinterTempAdj] = useState('-2.0');
   const [pm25Adj, setPm25Adj] = useState('+15');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [predLoading, setPredLoading] = useState(false);
   const [predSummary, setPredSummary] = useState<any>(null);
   const [predChartData, setPredChartData] = useState<any[]>([]);
@@ -124,10 +102,14 @@ export default function Dashboard() {
 
   const [showNewReportModal, setShowNewReportModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const [mappedSubstation, setMappedSubstation] = useState('');
   
-  const [reports, setReports] = useState<any[]>([]);
+  // 🌟 Firebase 대신 로컬 State 사용 (테스트 편의를 위해 2개의 초기 데이터 세팅)
+  const [reports, setReports] = useState<any[]>([
+    { id: 1, reqDate: '2026-09-10', dept: '건축설비처', name: '홍길동', line: '1호선', station: '반월당', type: '증설(+)', desc: '3번 출구 에스컬레이터 2기 신설', kw: 45, hours: 19, applyDate: '2026-10-01', status: '확인중', substation: '' },
+    { id: 2, reqDate: '2026-09-12', dept: '통신처', name: '김철수', line: '2호선', station: '대구은행', type: '철거(-)', desc: '구형 통신장비 철거 및 교체', kw: 10, hours: 24, applyDate: '2026-09-20', status: '확인', substation: '대구은행' }
+  ]);
 
   const [formDept, setFormDept] = useState('');
   const [formName, setFormName] = useState('');
@@ -158,63 +140,58 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  const handleSubmitNewReport = async () => {
+  // 🌟 새 신고서 로컬 State에 저장
+  const handleSubmitNewReport = () => {
     if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 정확히 입력해 주세요.');
       return;
     }
 
-    try {
-      const reportsRef = ref(db, 'load_reports');
-      await push(reportsRef, {
-        reqDate: getLocalISODate(),
-        dept: formDept,
-        name: formName,
-        line: formLine,
-        station: formStation,
-        type: formType,
-        desc: formDesc,
-        kw: parseFloat(formKw),
-        hours: parseFloat(formHours),
-        applyDate: formApplyDate,
-        status: '확인중',
-        substation: ''
-      });
+    const newReport = {
+      id: Date.now(),
+      reqDate: getLocalISODate(),
+      dept: formDept,
+      name: formName,
+      line: formLine,
+      station: formStation,
+      type: formType,
+      desc: formDesc,
+      kw: parseFloat(formKw),
+      hours: parseFloat(formHours),
+      applyDate: formApplyDate,
+      status: '확인중',
+      substation: ''
+    };
 
-      alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
-      setShowNewReportModal(false);
-      setFormStation('');
-      setFormDesc('');
-      setFormKw('');
-    } catch (err: any) {
-      console.error(err);
-      alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
-    }
+    setReports([newReport, ...reports]);
+    alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
+    setShowNewReportModal(false);
+    setFormStation('');
+    setFormDesc('');
+    setFormKw('');
   };
 
-  const handleConfirmReport = (id: string) => {
+  const handleConfirmReport = (id: number) => {
     setSelectedReportId(id);
     setMappedSubstation('');
     setShowMappingModal(true);
   };
 
-  const submitMapping = async () => {
-    if (!mappedSubstation || !selectedReportId) {
+  // 🌟 관리자 매핑 확인
+  const submitMapping = () => {
+    if (!mappedSubstation || selectedReportId === null) {
       alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
       return;
     }
+    setReports(reports.map(r => r.id === selectedReportId ? { ...r, status: '확인', substation: mappedSubstation } : r));
+    alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
+    setShowMappingModal(false);
+  };
 
-    try {
-      const reportRef = ref(db, `load_reports/${selectedReportId}`);
-      await update(reportRef, {
-        status: '확인',
-        substation: mappedSubstation
-      });
-      alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
-      setShowMappingModal(false);
-    } catch (err: any) {
-      console.error(err);
-      alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
+  // 🌟 관리자 매핑 해제 버튼 기능
+  const handleUnmapReport = (id: number) => {
+    if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
+      setReports(reports.map(r => r.id === id ? { ...r, status: '확인중', substation: '' } : r));
     }
   };
 
@@ -235,13 +212,13 @@ export default function Dashboard() {
       try {
         const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData });
         if (res.ok) {
+          setUploadedFile(file);
           alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.`);
           checkDatasetStatus(); 
         } else {
           alert("파일 업로드에 실패했습니다.");
         }
-      } catch (err) {
-        console.error(err);
+      } catch (error) {
         alert("백엔드 서버가 켜져 있는지 확인해 주세요.");
       }
     }
@@ -295,7 +272,7 @@ export default function Dashboard() {
         setChartData(records.map((r: any) => ({ ...r, date: r.date.substring(5) })));
       }
       setExpandedRows({});
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
   const fetchRealtimeData = async () => {
@@ -305,7 +282,7 @@ export default function Dashboard() {
       const result = await response.json();
       if (result.error) { alert(result.error); setRealtimeLoading(false); return; }
       setRealtimeData(result.records || []);
-    } catch (err) { console.error(err); } finally { setRealtimeLoading(false); }
+    } catch (error) { console.error(error); } finally { setRealtimeLoading(false); }
   };
 
   const fetchCompareData = async () => {
@@ -318,7 +295,7 @@ export default function Dashboard() {
       setCompRecords(result.records || []);
       setCompSummary(result.summary || {});
       setAiReport(result.summary?.ai_report || '리포트 생성 중 오류가 발생했습니다.');
-    } catch (err) { console.error(err); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
+    } catch (error) { console.error(error); alert('비교 분석 서버와 통신할 수 없습니다.'); } finally { setCompLoading(false); }
   };
 
   const runAIPrediction = async () => {
@@ -329,13 +306,18 @@ export default function Dashboard() {
     setFeatChartData([]);
 
     try {
-      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
+      // 🌟 프론트엔드 상태 중 "확인(승인)"된 리포트들만 모아서 백엔드에 보냅니다.
+      const confirmedReports = reports.filter(r => r.status === '확인');
+      const reportsParam = encodeURIComponent(JSON.stringify(confirmedReports));
+      
+      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}&reports_data=${reportsParam}`);
       const result = await response.json();
+      
       if (result.error) { alert(result.error); setPredLoading(false); return; }
       setPredSummary(result.summary); 
       setPredChartData(result.chart_data); 
       setFeatChartData(result.feat_data);
-    } catch (err) { console.error(err); alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
+    } catch (error) { alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
   };
 
   const fetchBillData = async () => {
@@ -351,8 +333,7 @@ export default function Dashboard() {
       if (result.error) { alert(result.error); setBillRecords([]); setBillLoading(false); return; }
       setBillRecords(result.records || []);
       setBillCustNo(result.cust_no || '');
-    } catch(err) {
-      console.error(err);
+    } catch(e) {
       alert("전기요금 서버 통신 에러");
     } finally { setBillLoading(false); }
   };
@@ -1107,12 +1088,13 @@ export default function Dashboard() {
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>일 가동</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>적용예정일</th>
                         <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>상태</th>
-                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>급전 계통(변전소) 매핑</th>
+                        {/* 🌟 관리자에게만 보이는 변전소 매핑 헤더 */}
+                        {isAdmin && <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>급전 계통(변전소) 매핑</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {reports.length === 0 ? (
-                        <tr><td colSpan={10} style={{ padding: '40px', color: theme.textMuted }}>등록된 부하증감 신고서가 없습니다.</td></tr>
+                        <tr><td colSpan={isAdmin ? 10 : 9} style={{ padding: '40px', color: theme.textMuted }}>등록된 부하증감 신고서가 없습니다.</td></tr>
                       ) : (
                         reports.map((row) => (
                           <tr key={row.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
@@ -1135,22 +1117,30 @@ export default function Dashboard() {
                                 {row.status}
                               </span>
                             </td>
-                            <td style={{ padding: '16px' }}>
-                              {row.status === '확인중' ? (
-                                isAdmin ? (
+                            
+                            {/* 🌟 관리자에게만 보이는 변전소 매핑 영역 */}
+                            {isAdmin && (
+                              <td style={{ padding: '16px' }}>
+                                {row.status === '확인중' ? (
                                   <button onClick={() => handleConfirmReport(row.id)} style={{ padding: '6px 12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}>
                                     내용 확인 및 계통 연결
                                   </button>
                                 ) : (
-                                  <span style={{ color: theme.textMuted, fontSize: '13px' }}>관리자 확인 대기</span>
-                                )
-                              ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                  <span style={{ color: theme.primary, fontWeight: 700, fontSize: '14px' }}>⚡ {row.substation}</span>
-                                  <span style={{ color: theme.textMuted, fontSize: '11px' }}>(AI 예측 반영 완료)</span>
-                                </div>
-                              )}
-                            </td>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ color: theme.primary, fontWeight: 700, fontSize: '14px' }}>⚡ {row.substation}</span>
+                                    {/* 🌟 매핑 해제 버튼 추가 */}
+                                    <button onClick={() => {
+                                      if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
+                                        const unmappedReports = reports.map(r => r.id === row.id ? { ...r, status: '확인중', substation: '' } : r);
+                                        setReports(unmappedReports);
+                                      }
+                                    }} style={{ padding: '4px 8px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                      해제
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         ))
                       )}
@@ -1191,7 +1181,15 @@ export default function Dashboard() {
               <button onClick={() => setShowMappingModal(false)} style={{ flex: 1, padding: '12px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
                 취소
               </button>
-              <button onClick={submitMapping} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => {
+                if (!mappedSubstation || selectedReportId === null) {
+                  alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
+                  return;
+                }
+                setReports(reports.map(r => r.id === selectedReportId ? { ...r, status: '확인', substation: mappedSubstation } : r));
+                alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
+                setShowMappingModal(false);
+              }} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
                 매핑 및 확인 완료
               </button>
             </div>
@@ -1238,7 +1236,33 @@ export default function Dashboard() {
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={() => setShowNewReportModal(false)} style={{ flex: 1, padding: '12px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>닫기</button>
-              <button onClick={handleSubmitNewReport} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>신고서 제출</button>
+              <button onClick={() => {
+                if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
+                  alert('모든 필드를 정확히 입력해 주세요.');
+                  return;
+                }
+                const newReport = {
+                  id: Date.now(),
+                  reqDate: getLocalISODate(),
+                  dept: formDept,
+                  name: formName,
+                  line: formLine,
+                  station: formStation,
+                  type: formType,
+                  desc: formDesc,
+                  kw: parseFloat(formKw),
+                  hours: parseFloat(formHours),
+                  applyDate: formApplyDate,
+                  status: '확인중',
+                  substation: ''
+                };
+                setReports([newReport, ...reports]);
+                alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
+                setShowNewReportModal(false);
+                setFormStation('');
+                setFormDesc('');
+                setFormKw('');
+              }} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>신고서 제출</button>
             </div>
           </div>
         </div>
