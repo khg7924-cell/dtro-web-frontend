@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-// 🌟 [중요] 로그인 페이지에서 사용하는 경로와 완벽히 똑같이 맞춰주세요!
+// 🌟 [수정 완료] 로그인 페이지와 동일한 경로 적용
 import { db } from '../firebase'; 
 import { ref, push, onValue, update } from 'firebase/database';
 
@@ -56,7 +56,7 @@ export default function Dashboard() {
     setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
 
-    // 🌟 Firebase 실시간 리스너 연동 (데이터가 바뀌면 즉시 화면 갱신)
+    // 🌟 Firebase 실시간 리스너 연동
     try {
       const reportsRef = ref(db, 'load_reports');
       const unsubscribe = onValue(reportsRef, (snapshot) => {
@@ -66,7 +66,6 @@ export default function Dashboard() {
             id: key,
             ...data[key]
           }));
-          // 최신 글이 위로 오도록 배열을 뒤집습니다.
           setReports(loadedReports.reverse()); 
         } else {
           setReports([]);
@@ -130,7 +129,6 @@ export default function Dashboard() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [mappedSubstation, setMappedSubstation] = useState('');
   
-  // 🌟 더미 데이터를 삭제하고 빈 배열로 초기화합니다.
   const [reports, setReports] = useState<any[]>([]);
 
   const [formDept, setFormDept] = useState('');
@@ -162,7 +160,7 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 🌟 Firebase 신고서 제출 (에러 메시지 강화)
+  // 🌟 Firebase 신고서 제출 로직
   const handleSubmitNewReport = async () => {
     if (!formDept.trim() || !formName.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 입력해 주세요.');
@@ -191,7 +189,6 @@ export default function Dashboard() {
       setFormDesc('');
       setFormKw('');
     } catch (e: any) {
-      // 에러의 상세 원인을 팝업으로 띄워줍니다.
       alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${e.message}\nFirebase Database 규칙을 확인해주세요.`);
     }
   };
@@ -1082,7 +1079,6 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  {/* 🌟 탭 제목 수정 */}
                   <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>부하증감 신고</h2>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#FEF2F2', color: theme.danger, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>📝</span> 역사 및 기지 내 신설/철거 설비의 전력 정보를 계통에 매핑합니다.
