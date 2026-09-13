@@ -91,26 +91,26 @@ export default function LoginPage() {
       <div style={{ flex: 1, backgroundColor: '#0F172A', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 2 }}>
           
-          {/* 🌟 타이틀 정렬 및 답답함 해소 패치 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '40px' }}>
-            <h1 style={{ margin: 0, fontSize: '3.2rem', fontFamily: 'sans-serif', letterSpacing: '-1px', lineHeight: 1.1 }}>
+          {/* 🌟 폰트 사이즈 및 여백 대폭 확대 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '48px' }}>
+            <h1 style={{ margin: 0, fontSize: '3.8rem', fontFamily: 'sans-serif', letterSpacing: '-1.5px', lineHeight: 1.1 }}>
               <span style={{ fontWeight: 900, color: '#0F62FE' }}>DTRO</span>
               <span style={{ fontWeight: 300, color: '#FFFFFF' }}> 스마트 에너지 관리 시스템</span>
             </h1>
-            <div style={{ fontSize: '1.15rem', color: '#94A3B8', fontWeight: 600, letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: '1.4rem', color: '#94A3B8', fontWeight: 600, letterSpacing: '0.5px' }}>
               <span style={{ fontWeight: 800, letterSpacing: '2px' }}>SEMS</span> 
-              <span style={{ color: '#475569', fontWeight: 400, marginLeft: '8px' }}>| Smart Energy Management System</span>
+              <span style={{ color: '#475569', fontWeight: 400, marginLeft: '10px' }}>| Smart Energy Management System</span>
             </div>
           </div>
 
-          <p style={{ fontSize: '1.2rem', color: '#94A3B8', margin: '0 0 40px 0', lineHeight: 1.6 }}>
+          <p style={{ fontSize: '1.25rem', color: '#94A3B8', margin: '0 0 40px 0', lineHeight: 1.6 }}>
             대구교통공사 빅데이터 통합 관제 플랫폼<br />
             기상, 대기질, 전력 데이터를 AI로 정밀 분석합니다.
           </p>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>⚡ 실시간 전력 분석</span>
-            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>🌤️ 기상청/대기질 연동</span>
-            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>🤖 AI 전력 수요 예측</span>
+            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>⚡ 실시간 전력 분석</span>
+            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>🌤️ 기상청/대기질 연동</span>
+            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>🤖 AI 전력 수요 예측</span>
           </div>
         </div>
         
