@@ -7,8 +7,8 @@ import {
   ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
-// Firebase 연결
-import { db } from '../firebase'; 
+// 🌟 [핵심 수정] dashboard 폴더 깊이에 맞게 두 칸 뒤(../../)로 경로를 수정했습니다!
+import { db } from '../../firebase'; 
 import { ref, push, onValue, update } from 'firebase/database';
 
 const API_URL = 'https://dtro-api.onrender.com'; 
@@ -434,6 +434,7 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}>
       
+      {/* 상단 네비게이션 헤더 */}
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>데이터센터 프로</span></h1>
@@ -461,6 +462,7 @@ export default function Dashboard() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
+        {/* 좌측 사이드바 (부하증감 탭에서는 숨김) */}
         {mainTab !== 'report' && (
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
@@ -495,6 +497,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* 메인 화면 영역 */}
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
           
           {/* ===================== [1. 통합 대시보드 탭] ===================== */}
