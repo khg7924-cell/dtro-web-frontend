@@ -488,7 +488,6 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}>
       
-      {/* 상단 네비게이션 헤더 */}
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           
@@ -594,7 +593,8 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
-                      <button onClick={() => { setChartMode('daily'); fetchDashboardData(); }} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
+                      {/* 🌟 수정사항 반영: 일별 추이 버튼 클릭 시 서버를 재조회하지 않고 화면(ChartMode)만 즉각 교체합니다. */}
+                      <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
                       <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
                     </div>
                   </div>
@@ -1037,7 +1037,7 @@ export default function Dashboard() {
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.border} />
                           <XAxis type="number" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
                           <YAxis dataKey="name" type="category" tick={{ fill: theme.textMain, fontSize: 13, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                          <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val) => val + '%'} />
+                          <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val, name) => val + '%'} />
                           <Bar dataKey="value" name="중요도(%)" fill={theme.secondary} radius={[0, 6, 6, 0]} barSize={24} />
                         </BarChart>
                       </ResponsiveContainer>
@@ -1045,7 +1045,6 @@ export default function Dashboard() {
                   </Card>
                 </div>
               ) : (
-                // 🌟 문구 및 아이콘 변경: AI 수요 예측 유도 메시지
                 <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '80px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
                   <span style={{ fontSize: '3rem' }}>📈</span>
                   <h3 style={{ color: theme.textMain, marginTop: '16px', marginBottom: '8px' }}>시뮬레이션 대기 중</h3>
