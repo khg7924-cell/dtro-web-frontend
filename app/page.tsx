@@ -91,7 +91,6 @@ export default function LoginPage() {
       <div style={{ flex: 1, backgroundColor: '#0F172A', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 2 }}>
           
-          {/* 🌟 폰트 사이즈 및 여백 대폭 확대 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '48px' }}>
             <h1 style={{ margin: 0, fontSize: '3.8rem', fontFamily: 'sans-serif', letterSpacing: '-1.5px', lineHeight: 1.1 }}>
               <span style={{ fontWeight: 900, color: '#0F62FE' }}>DTRO</span>
@@ -128,7 +127,7 @@ export default function LoginPage() {
           </h2>
           <p style={{ margin: '0 0 32px 0', color: '#64748B', fontSize: '0.95rem' }}>
             {isLoginMode 
-              ? '접근 권한이 있는 사내 계정을 입력해 주세요.' 
+              ? '접근 권한이 있는 계정을 입력해 주세요' 
               : '가입 신청 후 관리자의 승인이 완료되어야 로그인이 가능합니다.'}
           </p>
           
@@ -153,7 +152,7 @@ export default function LoginPage() {
                 type="text" 
                 value={userId} 
                 onChange={(e) => setUserId(e.target.value)} 
-                placeholder={isLoginMode ? "아이디 입력" : "사용할 사번/아이디 입력"}
+                placeholder={isLoginMode ? "아이디 입력" : "사용할 아이디 입력"}
                 style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
               />
             </div>
