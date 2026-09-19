@@ -34,7 +34,6 @@ export default function LoginPage() {
       if (snapshot.exists()) {
         const userData = snapshot.val();
         if (userData.isApproved === true) {
-          
           localStorage.setItem('userId', userId);
           router.push('/dashboard'); 
         } else {
@@ -50,11 +49,25 @@ export default function LoginPage() {
     }
   };
 
-  // 🔵 회원가입 처리 로직
+  // 🔵 회원가입 처리 로직 (유효성 검사 추가)
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (userId.trim() === '' || password.trim() === '' || department.trim() === '') {
       alert('모든 정보를 입력해 주세요.');
+      return;
+    }
+
+    // 🌟 1. 아이디 유효성 검사 (영문 대소문자/숫자만 허용, 4글자 이상)
+    const idRegex = /^[a-zA-Z0-9]{4,}$/;
+    if (!idRegex.test(userId)) {
+      alert('아이디는 한글 및 특수문자를 제외한 영문/숫자 조합으로 4글자 이상 입력해 주세요.');
+      return;
+    }
+
+    // 🌟 2. 비밀번호 유효성 검사 (8자리 이상)
+    if (password.length < 8) {
+      alert('보안을 위해 비밀번호는 8자리 이상으로 입력해 주세요.');
       return;
     }
 
@@ -127,7 +140,7 @@ export default function LoginPage() {
           </h2>
           <p style={{ margin: '0 0 32px 0', color: '#64748B', fontSize: '0.95rem' }}>
             {isLoginMode 
-              ? '접근 권한이 있는 계정을 입력해 주세요' 
+              ? '접근 권한이 있는 계정을 입력해 주세요.' 
               : '가입 신청 후 관리자의 승인이 완료되어야 로그인이 가능합니다.'}
           </p>
           
