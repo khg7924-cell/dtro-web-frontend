@@ -99,7 +99,7 @@ export default function Dashboard() {
   const [activeThreshold, setActiveThreshold] = useState<number>(0); 
   const [dbThreshold, setDbThreshold] = useState<number>(0);
 
-  // 🌟 드래그 상태 및 기준 좌표 관리 (부드러운 조작을 위한 Ref)
+  // 드래그 상태 관리
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const dragStartValueRef = useRef(0);
@@ -440,12 +440,14 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 좌/우 Y축 스케일 동일하게 30% 패딩 유지 (올림 연산 삭제)
+  // 🌟 좌/우 Y축 스케일 동일하게 30% 패딩 유지
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
+  const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
+  
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
-  // 🌟 드래그 좌표 계산 핸들러 (드래그 시작 지점 기준 상대 계산으로 부드럽게)
+  // 🌟 드래그 좌표 계산 핸들러
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
     const rect = chartBoxRef.current.getBoundingClientRect();
@@ -464,10 +466,9 @@ export default function Dashboard() {
     isDraggingRef.current = false;
   };
 
-  // 🌟 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널) - SVG 컴포넌트
+  // 🌟 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널)
   const CustomThresholdLabel = (props: any) => {
     const { viewBox } = props;
-    // 우측 외곽으로 빼서 그래프를 덮지 않도록 위치 보정
     const rightEdge = viewBox.x + viewBox.width;
     const yPos = viewBox.y;
     const isUnsaved = activeThreshold !== dbThreshold;
@@ -676,12 +677,11 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* 🌟 드래그 감지 박스 설정 */}
                   <div ref={chartBoxRef} style={{ height: '320px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={chartData} margin={{ top: 15, right: 110, left: -10, bottom: 0 }}>
+                          <ComposedChart data={chartData} margin={{ top: 15, right: 30, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                             <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                             <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
@@ -728,7 +728,6 @@ export default function Dashboard() {
                                 return null;
                               }} />
                               
-                              {/* 🌟 마우스로 직접 잡고 끄는 순수 드래그 ReferenceLine 및 외부 버튼 패널 */}
                               {(isAdmin || activeThreshold > 0) && (
                                 <ReferenceLine 
                                   y={activeThreshold} 
@@ -736,15 +735,6 @@ export default function Dashboard() {
                                   stroke={isUnsaved ? '#FF832B' : theme.danger} 
                                   strokeDasharray="5 5" 
                                   strokeWidth={3}
-                                  style={{ cursor: isAdmin ? 'ns-resize' : 'default' }}
-                                  onMouseDown={(e: any) => {
-                                    if (isAdmin) {
-                                      e.stopPropagation();
-                                      isDraggingRef.current = true;
-                                      dragStartYRef.current = e.clientY;
-                                      dragStartValueRef.current = activeThreshold;
-                                    }
-                                  }}
                                   label={<CustomThresholdLabel />}
                                 />
                               )}
