@@ -440,7 +440,7 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 좌/우 Y축 스케일 동일하게 30% 패딩 유지
+  // 🌟 누락된 getRightYAxisDomain 함수 복구 및 30% 패딩 유지
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
   
@@ -469,7 +469,6 @@ export default function Dashboard() {
   // 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널)
   const CustomThresholdLabel = (props: any) => {
     const { viewBox } = props;
-    // 🌟 버튼이 Y축 숫자를 가리지 않도록 위치를 더 우측(+35px)으로 이동
     const rightEdge = viewBox.x + viewBox.width;
     const yPos = viewBox.y;
     const isUnsaved = activeThreshold !== dbThreshold;
@@ -520,7 +519,7 @@ export default function Dashboard() {
               fontSize: '11px',
               fontWeight: 800,
               boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-              cursor: 'pointer', // 🌟 손가락 모양 커서 유지
+              cursor: 'pointer',
               whiteSpace: 'nowrap',
               margin: '0',
               width: '100%',
@@ -682,7 +681,7 @@ export default function Dashboard() {
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={chartData} margin={{ top: 15, right: 110, left: -10, bottom: 0 }}>
+                          <ComposedChart data={chartData} margin={{ top: 15, right: 85, left: 5, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                             <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                             <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
@@ -702,7 +701,7 @@ export default function Dashboard() {
 
                         return (
                           <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={realtimeData} margin={{ top: 15, right: 110, left: -10, bottom: 0 }}>
+                            <ComposedChart data={realtimeData} margin={{ top: 15, right: 85, left: 5, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                               <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
                               <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
@@ -729,7 +728,6 @@ export default function Dashboard() {
                                 return null;
                               }} />
                               
-                              {/* 🌟 마우스로 직접 잡고 끌어당길 수 있는 ReferenceLine (렌더링 순서 최하단) */}
                               {(isAdmin || activeThreshold > 0) && (
                                 <ReferenceLine 
                                   y={activeThreshold} 
@@ -1349,7 +1347,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ===================== [관리 전용] 급전 계통 매핑 모달 ===================== */}
+      {/* ===================== [관리자 전용] 급전 계통 매핑 모달 ===================== */}
       {showMappingModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '400px', boxShadow: theme.shadow }}>
