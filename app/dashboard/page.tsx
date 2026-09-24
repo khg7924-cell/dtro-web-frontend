@@ -52,7 +52,8 @@ export default function Dashboard() {
   useEffect(() => {
     const storedId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '알수없음';
     setUserId(storedId);
-    setIsAdmin(storedId === '20140165');
+    const adminCheck = storedId === '20140165';
+    setIsAdmin(adminCheck);
     checkDatasetStatus();
 
     try {
@@ -98,8 +99,10 @@ export default function Dashboard() {
   const [activeThreshold, setActiveThreshold] = useState<number>(0); 
   const [dbThreshold, setDbThreshold] = useState<number>(0);
 
-  // 🌟 드래그 상태를 추적하기 위한 레프
+  // 🌟 드래그 상태 및 기준 좌표 관리 (부드러운 조작을 위한 Ref)
   const isDraggingRef = useRef(false);
+  const dragStartYRef = useRef(0);
+  const dragStartValueRef = useRef(0);
   const chartBoxRef = useRef<HTMLDivElement | null>(null);
 
   const maxDate = getLocalISODate();
@@ -202,7 +205,7 @@ export default function Dashboard() {
       const res = await fetch(`${API_URL}/api/threshold/${encodeURIComponent(station)}?limit=${activeThreshold}`, { method: 'POST' });
       if(res.ok) {
         setDbThreshold(activeThreshold);
-        alert(`🚨 [${station}] 경고 기준치가 ${activeThreshold}kW로 영구 저장되었습니다.`);
+        alert(`🚨 [${station}] 경고 기준치가 ${activeThreshold}kW로 저장되었습니다.`);
       }
     } catch(err) {
       alert('설정 저장 중 오류가 발생했습니다.');
@@ -437,28 +440,104 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 30% 여유공간 스케일
+  // 🌟 좌/우 Y축 스케일 동일하게 30% 패딩 유지 (올림 연산 삭제)
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
-  // 🌟 차트 영역 내 어디서든 마우스를 누른 채 위아래로 끌면 선이 부드럽게 연동되도록 마우스 무브 연동
+  // 🌟 드래그 좌표 계산 핸들러 (드래그 시작 지점 기준 상대 계산으로 부드럽게)
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
     const rect = chartBoxRef.current.getBoundingClientRect();
-    const plotTop = rect.top + 15;
-    const plotBottom = rect.bottom - 30;
-    const plotHeight = plotBottom - plotTop;
+    const plotHeight = (rect.bottom - 30) - (rect.top + 15);
     
     if (plotHeight <= 0) return;
-    const clampedY = Math.max(plotTop, Math.min(e.clientY, plotBottom));
-    const ratio = (plotBottom - clampedY) / plotHeight;
-    const calculatedVal = Math.round(ratio * rightYAxisMax);
+    
+    const deltaY = dragStartYRef.current - e.clientY;
+    const deltaValue = (deltaY / plotHeight) * rightYAxisMax;
+    
+    const calculatedVal = Math.round(dragStartValueRef.current + deltaValue);
     setActiveThreshold(Math.max(0, calculatedVal));
   };
 
   const handleMouseUp = () => {
     isDraggingRef.current = false;
+  };
+
+  // 🌟 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널) - SVG 컴포넌트
+  const CustomThresholdLabel = (props: any) => {
+    const { viewBox } = props;
+    // 우측 외곽으로 빼서 그래프를 덮지 않도록 위치 보정
+    const rightEdge = viewBox.x + viewBox.width;
+    const yPos = viewBox.y;
+    const isUnsaved = activeThreshold !== dbThreshold;
+
+    if (!isAdmin) {
+      return (
+        <text x={rightEdge + 10} y={yPos + 4} fill={theme.danger} fontSize="12px" fontWeight="700" textAnchor="start">
+          🚨 경고선 ({activeThreshold}kW)
+        </text>
+      );
+    }
+
+    return (
+      <foreignObject 
+        x={rightEdge + 5} 
+        y={yPos - 35} 
+        width={100} 
+        height={70} 
+        style={{ overflow: 'visible' }}
+      >
+        <div 
+          style={{ 
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'transparent', height: '100%', width: '100%'
+          }}
+        >
+          <button 
+            onMouseDown={(e) => e.stopPropagation()} 
+            onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => p + 1); }} 
+            style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px' }}
+            title="1kW 올리기"
+          >▲</button>
+          
+          <button 
+            onMouseDown={(e) => { 
+              e.stopPropagation(); 
+              isDraggingRef.current = true; 
+              dragStartYRef.current = e.clientY;
+              dragStartValueRef.current = activeThreshold;
+            }}
+            onClick={(e) => { e.stopPropagation(); handleSaveThreshold(); }} 
+            style={{ 
+              backgroundColor: isUnsaved ? '#FF832B' : theme.danger,
+              color: '#FFF',
+              border: '2px solid #FFF',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              fontSize: '11px',
+              fontWeight: 800,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              cursor: 'ns-resize',
+              whiteSpace: 'nowrap',
+              margin: '0',
+              width: '100%',
+              transition: 'background-color 0.2s'
+            }} 
+            title="드래그하여 이동 / 클릭하여 저장"
+          >
+            🚨 {activeThreshold} kW {isUnsaved ? '💾' : '✔'}
+          </button>
+
+          <button 
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => Math.max(0, p - 1)); }} 
+            style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px' }}
+            title="1kW 내리기"
+          >▼</button>
+        </div>
+      </foreignObject>
+    );
   };
 
   return (
@@ -597,16 +676,16 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* 🌟 드래그 영역 컨테이너 */}
+                  {/* 🌟 드래그 감지 박스 설정 */}
                   <div ref={chartBoxRef} style={{ height: '320px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={chartData} margin={{ top: 15, right: 30, left: -10, bottom: 0 }}>
+                          <ComposedChart data={chartData} margin={{ top: 15, right: 110, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                             <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, dataMax => Math.round(dataMax * 1.3) || 100]} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, dataMax => Math.round(dataMax * 1.3) || 100]} />
+                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                             <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                             <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
                             <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={28} />
@@ -618,99 +697,59 @@ export default function Dashboard() {
                       realtimeLoading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>실시간 15분 데이터 연동 중... ⏳</p> : (() => {
                         const currentRealtimeMaxPeak = realtimeData.reduce((max, d) => (d.peak_kw !== null && d.peak_kw > max) ? d.peak_kw : max, -1);
                         const currentMaxPeakTime = realtimeData.find(d => d.peak_kw === currentRealtimeMaxPeak && d.peak_kw !== null)?.time;
-                        
-                        const topRatio = Math.max(0, Math.min(1, activeThreshold / rightYAxisMax));
-                        const btnTopPercent = (1 - topRatio) * 85 + 5; 
                         const isUnsaved = activeThreshold !== dbThreshold;
 
                         return (
-                          <>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <ComposedChart data={realtimeData} margin={{ top: 15, right: 30, left: -10, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                                <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-                                <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
-                                <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, rightYAxisMax]} />
-                                <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
-                                
-                                <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} isAnimationActive={false} />
-                                <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} isAnimationActive={false} dot={(props: any) => {
-                                  const { cx, cy, payload } = props;
-                                  if (payload.peak_kw !== null && payload.peak_kw === currentRealtimeMaxPeak && payload.time === currentMaxPeakTime && currentRealtimeMaxPeak > 0) {
-                                    return (
-                                      <g key={`peak-dot-${payload.time}`}>
-                                        <circle cx={cx} cy={cy} r={8} fill="#FA4D56">
-                                          <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
-                                        </circle>
-                                        <circle cx={cx} cy={cy} r={4} fill="#FFF" />
-                                        <text x={cx + 12} y={cy - 12} textAnchor="start" fill="#DA1E28" fontSize="13px" fontWeight="800">
-                                          {payload.peak_kw.toLocaleString()} kW
-                                        </text>
-                                      </g>
-                                    );
-                                  }
-                                  return null;
-                                }} />
-                                
-                                {/* 🌟 마우스를 누르고 선을 직접 잡고 끌어당길 수 있는 ReferenceLine */}
-                                {(isAdmin || activeThreshold > 0) && (
-                                  <ReferenceLine 
-                                    y={activeThreshold} 
-                                    yAxisId="right" 
-                                    stroke={isUnsaved ? '#FF832B' : theme.danger} 
-                                    strokeDasharray="5 5" 
-                                    strokeWidth={3}
-                                    style={{ cursor: isAdmin ? 'ns-resize' : 'default' }}
-                                    onMouseDown={(e: any) => {
-                                      if (isAdmin) {
-                                        e.stopPropagation();
-                                        isDraggingRef.current = true;
-                                      }
-                                    }}
-                                  />
-                                )}
-                              </ComposedChart>
-                            </ResponsiveContainer>
-
-                            {/* 🌟 그래프 바깥(우측 끝)에 매달려 실시간으로 같이 움직이는 값 표시 및 저장 버튼 */}
-                            {(isAdmin || activeThreshold > 0) && (
-                              <div 
-                                style={{
-                                  position: 'absolute',
-                                  right: '-20px',
-                                  top: `${btnTopPercent}%`,
-                                  transform: 'translateY(-50%)',
-                                  zIndex: 10,
-                                  userSelect: 'none',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center'
-                                }}
-                              >
-                                <button
-                                  onClick={handleSaveThreshold}
-                                  disabled={!isAdmin}
-                                  style={{
-                                    backgroundColor: isUnsaved ? '#FF832B' : theme.danger,
-                                    color: '#FFF',
-                                    border: '2px solid #FFF',
-                                    borderRadius: '12px',
-                                    padding: '4px 10px',
-                                    fontSize: '11px',
-                                    fontWeight: 800,
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                                    cursor: isAdmin ? 'pointer' : 'default',
-                                    whiteSpace: 'nowrap',
-                                    transition: 'top 0.05s linear' // 부드럽고 빠른 이동 애니메이션
+                          <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={realtimeData} margin={{ top: 15, right: 110, left: -10, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
+                              <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
+                              <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
+                              <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, rightYAxisMax]} />
+                              <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
+                              <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
+                              
+                              <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} isAnimationActive={false} />
+                              <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} isAnimationActive={false} dot={(props: any) => {
+                                const { cx, cy, payload } = props;
+                                if (payload.peak_kw !== null && payload.peak_kw === currentRealtimeMaxPeak && payload.time === currentMaxPeakTime && currentRealtimeMaxPeak > 0) {
+                                  return (
+                                    <g key={`peak-dot-${payload.time}`}>
+                                      <circle cx={cx} cy={cy} r={8} fill="#FA4D56">
+                                        <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
+                                      </circle>
+                                      <circle cx={cx} cy={cy} r={4} fill="#FFF" />
+                                      <text x={cx + 12} y={cy - 12} textAnchor="start" fill="#DA1E28" fontSize="13px" fontWeight="800">
+                                        {payload.peak_kw.toLocaleString()} kW
+                                      </text>
+                                    </g>
+                                  );
+                                }
+                                return null;
+                              }} />
+                              
+                              {/* 🌟 마우스로 직접 잡고 끄는 순수 드래그 ReferenceLine 및 외부 버튼 패널 */}
+                              {(isAdmin || activeThreshold > 0) && (
+                                <ReferenceLine 
+                                  y={activeThreshold} 
+                                  yAxisId="right" 
+                                  stroke={isUnsaved ? '#FF832B' : theme.danger} 
+                                  strokeDasharray="5 5" 
+                                  strokeWidth={3}
+                                  style={{ cursor: isAdmin ? 'ns-resize' : 'default' }}
+                                  onMouseDown={(e: any) => {
+                                    if (isAdmin) {
+                                      e.stopPropagation();
+                                      isDraggingRef.current = true;
+                                      dragStartYRef.current = e.clientY;
+                                      dragStartValueRef.current = activeThreshold;
+                                    }
                                   }}
-                                  title={isAdmin ? (isUnsaved ? "클릭하여 영구 저장" : "기준치 적용 상태") : "현재 설정된 경고치"}
-                                >
-                                  🚨 {activeThreshold} kW {isUnsaved ? '💾' : '✔'}
-                                </button>
-                              </div>
-                            )}
-                          </>
+                                  label={<CustomThresholdLabel />}
+                                />
+                              )}
+                            </ComposedChart>
+                          </ResponsiveContainer>
                         );
                       })()
                     )}
@@ -1162,7 +1201,7 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(중)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(최대)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>지상역률(%)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>지상역률(%)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
                       </tr>
                     </thead>
