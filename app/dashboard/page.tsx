@@ -52,7 +52,8 @@ export default function Dashboard() {
   useEffect(() => {
     const storedId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '알수없음';
     setUserId(storedId);
-    setIsAdmin(storedId === '20140165');
+    const adminCheck = storedId === '20140165';
+    setIsAdmin(adminCheck);
     checkDatasetStatus();
 
     try {
@@ -439,9 +440,8 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 좌측(사용량) 및 우측(피크) Y축 최대치 계산 (30% 여유공간)
+  // 좌우측 Y축 여유공간 30% 확보 로직
   const getLeftYAxisDomain = (dataMax: number) => Math.ceil((dataMax * 1.3) / 100) * 100 || 1000;
-  
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.max(Math.ceil((currentMaxPeakRealtime * 1.3) / 10) * 10, activeThreshold > 0 ? activeThreshold * 1.2 : 0) || 100;
 
@@ -468,6 +468,7 @@ export default function Dashboard() {
     <div 
       onMouseMove={handleMouseMove} 
       onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
       style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}
     >
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
@@ -591,13 +592,15 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     
-                    <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
-                      <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
-                      <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
+                        <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
+                        <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
+                      </div>
                     </div>
                   </div>
                   
-                  {/* 🌟 드래그 감지 박스 및 외부 조작 패널 영역 */}
+                  {/* 🌟 드래그 감지 박스 설정 */}
                   <div ref={chartBoxRef} style={{ height: '320px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
@@ -619,13 +622,13 @@ export default function Dashboard() {
                         const currentRealtimeMaxPeak = realtimeData.reduce((max, d) => (d.peak_kw !== null && d.peak_kw > max) ? d.peak_kw : max, -1);
                         const currentMaxPeakTime = realtimeData.find(d => d.peak_kw === currentRealtimeMaxPeak && d.peak_kw !== null)?.time;
                         
-                        // Y축 높이 계산
                         const topRatio = Math.max(0, Math.min(1, activeThreshold / rightYAxisMax));
                         const btnTopPercent = (1 - topRatio) * 85 + 5; 
                         const isUnsaved = activeThreshold !== dbThreshold;
 
                         return (
                           <>
+                            {/* 🌟 Bar, Line 차트 먼저 렌더링 */}
                             <ResponsiveContainer width="100%" height="100%">
                               <ComposedChart data={realtimeData} margin={{ top: 15, right: 30, left: -10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
@@ -635,25 +638,6 @@ export default function Dashboard() {
                                 <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                                 <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
                                 
-                                {/* 🌟 마우스로 직접 잡고 끄는 순수 드래그 ReferenceLine */}
-                                {(isAdmin || activeThreshold > 0) && (
-                                  <ReferenceLine 
-                                    y={activeThreshold} 
-                                    yAxisId="right" 
-                                    isFront={true}
-                                    stroke={isUnsaved ? '#FF832B' : theme.danger} 
-                                    strokeDasharray="5 5" 
-                                    strokeWidth={3}
-                                    style={{ cursor: isAdmin ? 'ns-resize' : 'default' }}
-                                    onMouseDown={(e: any) => {
-                                      if (isAdmin) {
-                                        e.stopPropagation();
-                                        isDraggingRef.current = true;
-                                      }
-                                    }}
-                                  />
-                                )}
-
                                 <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} isAnimationActive={false} />
                                 <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} isAnimationActive={false} dot={(props: any) => {
                                   const { cx, cy, payload } = props;
@@ -672,21 +656,47 @@ export default function Dashboard() {
                                   }
                                   return null;
                                 }} />
+                                
+                                {/* 🌟 ReferenceLine을 맨 아래에 두어 최상단 렌더링 (isFront 대신 순서로 제어) */}
+                                {(isAdmin || activeThreshold > 0) && (
+                                  <ReferenceLine 
+                                    y={activeThreshold} 
+                                    yAxisId="right" 
+                                    stroke={isUnsaved ? '#FF832B' : theme.danger} 
+                                    strokeDasharray="5 5" 
+                                    strokeWidth={3}
+                                    style={{ cursor: isAdmin ? 'ns-resize' : 'default' }}
+                                    onMouseDown={(e: any) => {
+                                      if (isAdmin) {
+                                        e.stopPropagation();
+                                        isDraggingRef.current = true;
+                                      }
+                                    }}
+                                  />
+                                )}
                               </ComposedChart>
                             </ResponsiveContainer>
 
-                            {/* 🌟 그래프 외부(우측 끝)에 떠있는 설정값 및 저장 버튼 패널 */}
+                            {/* 🌟 차트 우측 바깥에 표시되는 조작 패널 (데이터 안 가림) */}
                             {(isAdmin || activeThreshold > 0) && (
                               <div 
                                 style={{
                                   position: 'absolute',
-                                  right: '-8px',
+                                  right: '-20px',
                                   top: `${btnTopPercent}%`,
                                   transform: 'translateY(-50%)',
                                   zIndex: 10,
-                                  userSelect: 'none'
+                                  userSelect: 'none',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  gap: '2px'
                                 }}
                               >
+                                {isAdmin && (
+                                  <button onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => p + 10); }} style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: 0 }}>▲</button>
+                                )}
+                                
                                 <button
                                   onClick={handleSaveThreshold}
                                   disabled={!isAdmin}
@@ -707,6 +717,10 @@ export default function Dashboard() {
                                 >
                                   🚨 {activeThreshold} kW {isUnsaved ? '💾' : '✔'}
                                 </button>
+
+                                {isAdmin && (
+                                  <button onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => Math.max(0, p - 10)); }} style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: 0 }}>▼</button>
+                                )}
                               </div>
                             )}
                           </>
@@ -1161,7 +1175,7 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(중)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(최대)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>지상역률(%)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>지상역률(%)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
                       </tr>
                     </thead>
