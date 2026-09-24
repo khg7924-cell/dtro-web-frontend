@@ -440,14 +440,12 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 좌/우 Y축 스케일 동일하게 30% 패딩 유지
+  // 좌/우 Y축 스케일 동일하게 30% 패딩 유지
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
-  const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
-  
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
-  // 🌟 드래그 좌표 계산 핸들러
+  // 드래그 좌표 계산 핸들러
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
     const rect = chartBoxRef.current.getBoundingClientRect();
@@ -466,7 +464,7 @@ export default function Dashboard() {
     isDraggingRef.current = false;
   };
 
-  // 🌟 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널)
+  // 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널)
   const CustomThresholdLabel = (props: any) => {
     const { viewBox } = props;
     const rightEdge = viewBox.x + viewBox.width;
@@ -475,7 +473,7 @@ export default function Dashboard() {
 
     if (!isAdmin) {
       return (
-        <text x={rightEdge + 10} y={yPos + 4} fill={theme.danger} fontSize="12px" fontWeight="700" textAnchor="start">
+        <text x={rightEdge + 35} y={yPos + 4} fill={theme.danger} fontSize="12px" fontWeight="700" textAnchor="start">
           🚨 경고선 ({activeThreshold}kW)
         </text>
       );
@@ -483,9 +481,9 @@ export default function Dashboard() {
 
     return (
       <foreignObject 
-        x={rightEdge + 5} 
+        x={rightEdge + 35} 
         y={yPos - 35} 
-        width={100} 
+        width={90} 
         height={70} 
         style={{ overflow: 'visible' }}
       >
@@ -519,7 +517,7 @@ export default function Dashboard() {
               fontSize: '11px',
               fontWeight: 800,
               boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-              cursor: 'ns-resize',
+              cursor: 'pointer', // 손가락 모양 커서
               whiteSpace: 'nowrap',
               margin: '0',
               width: '100%',
@@ -681,7 +679,7 @@ export default function Dashboard() {
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={chartData} margin={{ top: 15, right: 30, left: -10, bottom: 0 }}>
+                          <ComposedChart data={chartData} margin={{ top: 15, right: 110, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                             <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                             <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
