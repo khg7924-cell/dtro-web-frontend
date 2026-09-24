@@ -440,7 +440,7 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 누락된 getRightYAxisDomain 함수 복구 및 30% 패딩 유지
+  // 🌟 좌/우 Y축 30% 패딩
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
   
@@ -466,7 +466,7 @@ export default function Dashboard() {
     isDraggingRef.current = false;
   };
 
-  // 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널)
+  // 점선 끝에 달릴 조작용 라벨(버튼 패널)
   const CustomThresholdLabel = (props: any) => {
     const { viewBox } = props;
     const rightEdge = viewBox.x + viewBox.width;
@@ -474,10 +474,36 @@ export default function Dashboard() {
     const isUnsaved = activeThreshold !== dbThreshold;
 
     if (!isAdmin) {
+      // 🌟 일반 사용자에게도 예쁜 뱃지 형태로 표출 (조작 및 저장 버튼 제외)
       return (
-        <text x={rightEdge + 35} y={yPos + 4} fill={theme.danger} fontSize="12px" fontWeight="700" textAnchor="start">
-          🚨 경고선 ({activeThreshold}kW)
-        </text>
+        <foreignObject 
+          x={rightEdge + 35} 
+          y={yPos - 15} 
+          width={90} 
+          height={30} 
+          style={{ overflow: 'visible' }}
+        >
+          <div 
+            style={{ 
+              backgroundColor: theme.danger,
+              color: '#FFF',
+              border: '2px solid #FFF',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              fontSize: '11px',
+              fontWeight: 800,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              whiteSpace: 'nowrap',
+              height: '100%',
+              margin: 0
+            }}
+          >
+            🚨 {activeThreshold} kW
+          </div>
+        </foreignObject>
       );
     }
 
@@ -519,7 +545,7 @@ export default function Dashboard() {
               fontSize: '11px',
               fontWeight: 800,
               boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-              cursor: 'pointer',
+              cursor: 'pointer', 
               whiteSpace: 'nowrap',
               margin: '0',
               width: '100%',
