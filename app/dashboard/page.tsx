@@ -95,11 +95,9 @@ export default function Dashboard() {
   const [cachedAt, setCachedAt] = useState('');
   const [isCachedData, setIsCachedData] = useState(false);
   
-  // 임계치 상태 관리
   const [activeThreshold, setActiveThreshold] = useState<number>(0); 
   const [dbThreshold, setDbThreshold] = useState<number>(0);
 
-  // 드래그 상태 관리
   const isDraggingRef = useRef(false);
   const chartBoxRef = useRef<HTMLDivElement | null>(null);
 
@@ -185,7 +183,6 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 역 변경 시 임계치 동기화
   useEffect(() => {
     if (!station) return;
     const thRef = ref(db, `peak_thresholds/${station}`);
@@ -198,7 +195,6 @@ export default function Dashboard() {
     return () => unsub();
   }, [station, isAdmin]);
 
-  // Firebase 및 백엔드 저장
   const handleSaveThreshold = async () => {
     try {
       await update(ref(db, 'peak_thresholds'), { [station]: activeThreshold });
@@ -440,10 +436,10 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 좌우측 Y축 여유공간 30% 확보 로직
-  const getLeftYAxisDomain = (dataMax: number) => Math.ceil((dataMax * 1.3) / 100) * 100 || 1000;
+  // 🌟 과도한 올림 처리를 삭제하고 정확히 30% 여유만 확보
+  const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 100;
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
-  const rightYAxisMax = Math.max(Math.ceil((currentMaxPeakRealtime * 1.3) / 10) * 10, activeThreshold > 0 ? activeThreshold * 1.2 : 0) || 100;
+  const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
   // 🌟 드래그 좌표 계산 핸들러
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -600,7 +596,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* 🌟 드래그 감지 박스 설정 */}
                   <div ref={chartBoxRef} style={{ height: '320px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
@@ -608,8 +603,8 @@ export default function Dashboard() {
                           <ComposedChart data={chartData} margin={{ top: 15, right: 30, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                             <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, (max) => Math.ceil((max * 1.3) / 10) * 10 || 100]} />
+                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, dataMax => Math.round(dataMax * 1.3) || 100]} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, dataMax => Math.round(dataMax * 1.3) || 100]} />
                             <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                             <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
                             <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={28} />
@@ -628,7 +623,6 @@ export default function Dashboard() {
 
                         return (
                           <>
-                            {/* 🌟 Bar, Line 차트 먼저 렌더링 */}
                             <ResponsiveContainer width="100%" height="100%">
                               <ComposedChart data={realtimeData} margin={{ top: 15, right: 30, left: -10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
@@ -657,7 +651,6 @@ export default function Dashboard() {
                                   return null;
                                 }} />
                                 
-                                {/* 🌟 ReferenceLine을 맨 아래에 두어 최상단 렌더링 (isFront 대신 순서로 제어) */}
                                 {(isAdmin || activeThreshold > 0) && (
                                   <ReferenceLine 
                                     y={activeThreshold} 
@@ -677,7 +670,6 @@ export default function Dashboard() {
                               </ComposedChart>
                             </ResponsiveContainer>
 
-                            {/* 🌟 차트 우측 바깥에 표시되는 조작 패널 (데이터 안 가림) */}
                             {(isAdmin || activeThreshold > 0) && (
                               <div 
                                 style={{
