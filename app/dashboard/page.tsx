@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-// 🌟 ReferenceLine 추가 임포트
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, ComposedChart, ReferenceLine 
@@ -95,12 +94,11 @@ export default function Dashboard() {
   const [cachedAt, setCachedAt] = useState('');
   const [isCachedData, setIsCachedData] = useState(false);
   
-  // 🌟 카카오워크 경고 임계치 상태 변수 추가
-  const [peakThreshold, setPeakThreshold] = useState<string>(''); 
-  const [activeThreshold, setActiveThreshold] = useState<number>(0);
+  // 🌟 Firebase 실시간 연동을 위한 임계치 상태 변수
+  const [activeThreshold, setActiveThreshold] = useState<number>(0); 
+  const [dbThreshold, setDbThreshold] = useState<number>(0);
 
   const maxDate = getLocalISODate();
-  
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
     const calculatedDate = getLocalISODate(d);
@@ -137,7 +135,6 @@ export default function Dashboard() {
   const [mappedSubstation, setMappedSubstation] = useState('');
   
   const [reports, setReports] = useState<any[]>([]);
-  
   const [selectedForDeletion, setSelectedForDeletion] = useState<string[]>([]);
 
   const [formDept, setFormDept] = useState('');
@@ -183,30 +180,27 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
-  // 🌟 역이 바뀔 때마다 백엔드에서 설정된 임계치 로드
+  // 🌟 역이 바뀔 때 파이어베이스에서 해당 역의 임계치 자동 로드
   useEffect(() => {
-    const fetchThreshold = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/threshold/${encodeURIComponent(station)}`);
-        const data = await res.json();
-        const limit = data.limit || 0;
-        setActiveThreshold(limit);
-        setPeakThreshold(limit > 0 ? limit.toString() : '');
-      } catch (err) {
-        console.error("임계치 로드 실패", err);
-      }
-    };
-    fetchThreshold();
+    if (!station) return;
+    const thRef = ref(db, `peak_thresholds/${station}`);
+    const unsub = onValue(thRef, (snapshot) => {
+      const val = snapshot.exists() ? Number(snapshot.val()) : 0;
+      setDbThreshold(val);
+      setActiveThreshold(val);
+    });
+    return () => unsub();
   }, [station]);
 
-  // 🌟 임계치 저장 실행 함수
+  // 🌟 파이어베이스 및 파이썬 서버에 임계치 동시 저장
   const handleSaveThreshold = async () => {
-    const limit = parseFloat(peakThreshold) || 0;
     try {
-      const res = await fetch(`${API_URL}/api/threshold/${encodeURIComponent(station)}?limit=${limit}`, { method: 'POST' });
+      // 1. Firebase 영구 저장
+      await update(ref(db, 'peak_thresholds'), { [station]: activeThreshold });
+      // 2. 파이썬 백엔드 RAM(스케줄러) 동기화
+      const res = await fetch(`${API_URL}/api/threshold/${encodeURIComponent(station)}?limit=${activeThreshold}`, { method: 'POST' });
       if(res.ok) {
-        alert(`🚨 [${station}] 최대수요전력 경고 기준치가 ${limit}kW로 설정되었습니다.\n해당 수치 도달 시 카카오워크로 자동 알림이 발송됩니다.`);
-        setActiveThreshold(limit);
+        alert(`🚨 [${station}] 경고 기준선이 ${activeThreshold}kW로 영구 저장되었습니다.\n해당 수치 도달 시 카카오워크로 자동 알림이 발송됩니다.`);
       }
     } catch(err) {
       alert('설정 저장 중 오류가 발생했습니다. 서버 연결을 확인해 주세요.');
@@ -441,6 +435,12 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
+  // 🌟 차트 Y축 여유 공간 확보 (데이터 최대치의 1.3배 또는 설정값의 1.1배)
+  const getRightYAxisDomain = (dataMax: number) => {
+    const maxTarget = Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0);
+    return Math.ceil(maxTarget / 10) * 10 || 100; // 데이터가 0일 때 대비 기본값 100
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}>
       
@@ -511,6 +511,7 @@ export default function Dashboard() {
 
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
           
+          {/* ===================== [1. 통합 대시보드 탭] ===================== */}
           {mainTab === 'dashboard' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
@@ -566,22 +567,29 @@ export default function Dashboard() {
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      {/* 🌟 목표 최대수요 설정 영역 (실시간 탭에서만 보이게) */}
-                      {chartMode === 'realtime' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#FEF2F2', padding: '4px 12px', borderRadius: '8px', border: `1px solid #FECACA` }}>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: theme.danger }}>🚨 피크 경고(kW)</span>
+                      {/* 🌟 슬라이더 기반 임계치 시각화 및 Firebase 연동 */}
+                      {isAdmin && chartMode === 'realtime' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#FEF2F2', padding: '6px 14px', borderRadius: '12px', border: `1px solid #FECACA` }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: theme.danger }}>🚨 경고선 조절</span>
                           <input 
-                            type="number" 
-                            value={peakThreshold} 
-                            onChange={e => setPeakThreshold(e.target.value)} 
-                            placeholder="미설정" 
-                            style={{ width: '60px', padding: '2px 6px', border: '1px solid #FCA5A5', borderRadius: '4px', fontSize: '12px', outline: 'none', textAlign: 'center' }} 
+                            type="range" 
+                            min="0" 
+                            max={Math.max(1000, Math.ceil(Math.max(...realtimeData.map(d => d.peak_kw || 0)) * 2))}
+                            step="10" 
+                            value={activeThreshold} 
+                            onChange={(e) => setActiveThreshold(Number(e.target.value))} 
+                            style={{ width: '100px', cursor: 'pointer', accentColor: theme.danger }} 
                           />
-                          <button 
-                            onClick={handleSaveThreshold} 
-                            style={{ padding: '2px 8px', backgroundColor: theme.danger, color: '#FFF', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
-                            저장
-                          </button>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: theme.danger, minWidth: '60px' }}>{activeThreshold} kW</span>
+                          
+                          {/* Firebase DB 값과 슬라이더 값이 다를 때만 저장 버튼 표시 */}
+                          {activeThreshold !== dbThreshold && (
+                            <button 
+                              onClick={handleSaveThreshold} 
+                              style={{ padding: '4px 8px', backgroundColor: theme.danger, color: '#FFF', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                              저장 및 적용
+                            </button>
+                          )}
                         </div>
                       )}
                       
@@ -600,7 +608,8 @@ export default function Dashboard() {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                             <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                             <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                            {/* 🌟 Y축 상단 30% 패딩 적용 */}
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                             <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                             <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
                             <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={28} />
@@ -619,11 +628,12 @@ export default function Dashboard() {
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                               <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
                               <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                              <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                              {/* 🌟 Y축 상단 30% 패딩 적용 */}
+                              <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                               <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                               <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
                               
-                              {/* 🌟 0보다 큰 임계치가 설정되어 있으면 그래프 위에 붉은 점선으로 표시 */}
+                              {/* 🌟 슬라이더와 연동되어 실시간으로 움직이는 ReferenceLine */}
                               {activeThreshold > 0 && (
                                 <ReferenceLine 
                                   y={activeThreshold} 
@@ -631,7 +641,7 @@ export default function Dashboard() {
                                   stroke={theme.danger} 
                                   strokeDasharray="5 5" 
                                   strokeWidth={2}
-                                  label={{ position: 'insideTopLeft', value: `🚨 경고치 (${activeThreshold}kW)`, fill: theme.danger, fontSize: 12, fontWeight: 700 }} 
+                                  label={{ position: 'insideTopLeft', value: `🚨 경고선 (${activeThreshold}kW)`, fill: theme.danger, fontSize: 12, fontWeight: 700 }} 
                                 />
                               )}
 
