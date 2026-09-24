@@ -92,9 +92,12 @@ export default function Dashboard() {
   const [weatherTab, setWeatherTab] = useState('temp');
   
   const maxDate = getLocalISODate();
+  
+  // 🌟 초기 날짜 세팅 시 9월 5일 이전으로 넘어가지 않도록 방어 로직 추가
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
-    return getLocalISODate(d);
+    const calculatedDate = getLocalISODate(d);
+    return calculatedDate < '2026-09-05' ? '2026-09-05' : calculatedDate;
   });
   const [endDate, setEndDate] = useState(() => getLocalISODate());
 
@@ -570,14 +573,19 @@ export default function Dashboard() {
                 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* 🌟 min 속성을 통해 2026년 9월 5일 이전 날짜 원천 차단 */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
-                      <input type="date" max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
+                      <input type="date" min="2026-09-05" max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                       <span style={{ color: theme.border }}>|</span>
-                      <input type="date" max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
+                      <input type="date" min="2026-09-05" max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                     </div>
                     <button onClick={() => { fetchDashboardData(); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
                     <button onClick={handleExportExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
+                  </div>
+                  {/* 🌟 하단 9월 5일 안내 텍스트 추가 */}
+                  <div style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600, marginRight: '4px' }}>
+                    ※ 2026년 9월 5일(한국전력 API 연동 승인일)부터 조회 가능합니다.
                   </div>
                 </div>
               </div>
@@ -593,7 +601,6 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
-                      {/* 🌟 수정사항 반영: 일별 추이 버튼 클릭 시 서버를 재조회하지 않고 화면(ChartMode)만 즉각 교체합니다. */}
                       <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
                       <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
                     </div>
