@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+// 🌟 ReferenceLine 추가 임포트
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, ComposedChart 
+  ResponsiveContainer, ComposedChart, ReferenceLine 
 } from 'recharts';
 
 import { db } from '../../firebase'; 
@@ -91,13 +92,15 @@ export default function Dashboard() {
   const [realtimeLoading, setRealtimeLoading] = useState(false);
   const [weatherTab, setWeatherTab] = useState('temp');
   
-  // 🌟 캐시 상태 변수
   const [cachedAt, setCachedAt] = useState('');
   const [isCachedData, setIsCachedData] = useState(false);
   
+  // 🌟 카카오워크 경고 임계치 상태 변수 추가
+  const [peakThreshold, setPeakThreshold] = useState<string>(''); 
+  const [activeThreshold, setActiveThreshold] = useState<number>(0);
+
   const maxDate = getLocalISODate();
   
-  // 🌟 9월 5일 이전 선택 방어 로직
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
     const calculatedDate = getLocalISODate(d);
@@ -145,7 +148,6 @@ export default function Dashboard() {
   const [formApplyDate, setFormApplyDate] = useState(getLocalISODate());
   const [formDesc, setFormDesc] = useState('');
   const [formKw, setFormKw] = useState('');
-  
   const [formStartTime, setFormStartTime] = useState('05:00');
   const [formEndTime, setFormEndTime] = useState('24:00');
 
@@ -160,7 +162,6 @@ export default function Dashboard() {
     
     return parseFloat((diffMins / 60).toFixed(1));
   };
-
   const formCalculatedHours = calculateHours(formStartTime, formEndTime);
 
   const substationList = [
@@ -182,39 +183,52 @@ export default function Dashboard() {
   const toggleMenu = (menu: string) => setOpenMenus(prev => ({ ...prev, [menu]: !prev[menu] }));
   const toggleRow = (date: string) => setExpandedRows(prev => ({ ...prev, [date]: !prev[date] }));
 
+  // 🌟 역이 바뀔 때마다 백엔드에서 설정된 임계치 로드
+  useEffect(() => {
+    const fetchThreshold = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/threshold/${encodeURIComponent(station)}`);
+        const data = await res.json();
+        const limit = data.limit || 0;
+        setActiveThreshold(limit);
+        setPeakThreshold(limit > 0 ? limit.toString() : '');
+      } catch (err) {
+        console.error("임계치 로드 실패", err);
+      }
+    };
+    fetchThreshold();
+  }, [station]);
+
+  // 🌟 임계치 저장 실행 함수
+  const handleSaveThreshold = async () => {
+    const limit = parseFloat(peakThreshold) || 0;
+    try {
+      const res = await fetch(`${API_URL}/api/threshold/${encodeURIComponent(station)}?limit=${limit}`, { method: 'POST' });
+      if(res.ok) {
+        alert(`🚨 [${station}] 최대수요전력 경고 기준치가 ${limit}kW로 설정되었습니다.\n해당 수치 도달 시 카카오워크로 자동 알림이 발송됩니다.`);
+        setActiveThreshold(limit);
+      }
+    } catch(err) {
+      alert('설정 저장 중 오류가 발생했습니다. 서버 연결을 확인해 주세요.');
+    }
+  };
+
   const handleSubmitNewReport = async () => {
     if (!formDept.trim() || !formName.trim() || !formStation.trim() || !formDesc.trim() || !formKw.trim()) {
       alert('모든 필드를 정확히 입력해 주세요.');
       return;
     }
-
     try {
       const reportsRef = ref(db, 'load_reports');
       await push(reportsRef, {
-        reqDate: getLocalISODate(),
-        dept: formDept,
-        name: formName,
-        line: formLine,
-        station: formStation,
-        type: formType,
-        desc: formDesc,
-        kw: parseFloat(formKw),
-        startTime: formStartTime,
-        endTime: formEndTime,
-        hours: formCalculatedHours,
-        applyDate: formApplyDate,
-        status: '확인중',
-        substation: ''
+        reqDate: getLocalISODate(), dept: formDept, name: formName, line: formLine,
+        station: formStation, type: formType, desc: formDesc, kw: parseFloat(formKw),
+        startTime: formStartTime, endTime: formEndTime, hours: formCalculatedHours,
+        applyDate: formApplyDate, status: '확인중', substation: ''
       });
-
       alert('✅ 부하증감 신고서가 접수되었습니다.\n전기관리팀 담당자가 계통 확인 후 시스템에 반영됩니다.');
-      setShowNewReportModal(false);
-      setFormStation('');
-      setFormDesc('');
-      setFormKw('');
-    } catch (err: any) {
-      alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${err.message}\nFirebase Database 규칙을 확인해주세요.`);
-    }
+      setShowNewReportModal(false); setFormStation(''); setFormDesc(''); setFormKw('');
+    } catch (err: any) { alert(`저장 중 오류가 발생했습니다.\n상세 사유: ${err.message}`); }
   };
 
   const handleConfirmReport = (id: string) => {
@@ -228,61 +242,39 @@ export default function Dashboard() {
       alert('전력을 공급받는 해당 변전소(수전설비)를 선택해주세요.');
       return;
     }
-
     try {
       const reportRef = ref(db, `load_reports/${selectedReportId}`);
-      await update(reportRef, {
-        status: '확인',
-        substation: mappedSubstation
-      });
+      await update(reportRef, { status: '확인', substation: mappedSubstation });
       alert(`⚡ [${mappedSubstation}] 변전소 계통 매핑이 완료되었습니다.\n향후 AI 수요예측 계산에 자동으로 반영됩니다.`);
       setShowMappingModal(false);
-    } catch (err: any) {
-      alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
-    }
+    } catch (err: any) { alert(`업데이트 중 오류가 발생했습니다.\n상세 사유: ${err.message}`); }
   };
 
   const handleUnmapReport = async (id: string) => {
     if(window.confirm('정말 매핑을 해제하고 확인 대기 상태로 돌리시겠습니까?')) {
       try {
         const reportRef = ref(db, `load_reports/${id}`);
-        await update(reportRef, {
-          status: '확인중',
-          substation: ''
-        });
-      } catch (err: any) {
-        alert(`해제 중 오류가 발생했습니다.\n상세 사유: ${err.message}`);
-      }
+        await update(reportRef, { status: '확인중', substation: '' });
+      } catch (err: any) { alert(`해제 중 오류가 발생했습니다.\n상세 사유: ${err.message}`); }
     }
   };
 
   const toggleSelectForDeletion = (id: string) => {
-    if (selectedForDeletion.includes(id)) {
-      setSelectedForDeletion(selectedForDeletion.filter(item => item !== id));
-    } else {
-      setSelectedForDeletion([...selectedForDeletion, id]);
-    }
+    if (selectedForDeletion.includes(id)) { setSelectedForDeletion(selectedForDeletion.filter(item => item !== id)); } 
+    else { setSelectedForDeletion([...selectedForDeletion, id]); }
   };
 
   const handleDeleteSelected = async () => {
     if (window.confirm(`선택한 ${selectedForDeletion.length}개의 신고 내역을 완전히 삭제하시겠습니까?`)) {
       try {
-        await Promise.all(
-          selectedForDeletion.map(id => remove(ref(db, `load_reports/${id}`)))
-        );
-        setSelectedForDeletion([]); 
-        alert('선택한 신고 내역이 정상적으로 삭제되었습니다.');
-      } catch (err: any) {
-        alert(`삭제 중 오류가 발생했습니다: ${err.message}`);
-      }
+        await Promise.all(selectedForDeletion.map(id => remove(ref(db, `load_reports/${id}`))));
+        setSelectedForDeletion([]); alert('선택한 신고 내역이 정상적으로 삭제되었습니다.');
+      } catch (err: any) { alert(`삭제 중 오류가 발생했습니다: ${err.message}`); }
     }
   };
 
   const handleMasterBackup = () => {
-    if (!isDatasetReady) {
-      alert("베이스가 될 기존 통합 데이터셋이 서버에 없습니다. 먼저 업로드해주세요.");
-      return;
-    }
+    if (!isDatasetReady) { alert("베이스가 될 기존 통합 데이터셋이 서버에 없습니다. 먼저 업로드해주세요."); return; }
     window.location.href = `${API_URL}/api/backup`;
   };
 
@@ -291,26 +283,16 @@ export default function Dashboard() {
       const file = e.target.files[0];
       const formData = new FormData();
       formData.append("file", file);
-
       try {
         const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData });
-        if (res.ok) {
-          alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.`);
-          checkDatasetStatus(); 
-        } else {
-          alert("파일 업로드에 실패했습니다.");
-        }
-      } catch (err) {
-        console.error(err);
-        alert("백엔드 서버가 켜져 있는지 확인해 주세요.");
-      }
+        if (res.ok) { alert(`✅ [관리자 권한] ${file.name}\n데이터셋이 서버에 전역 저장되었습니다.`); checkDatasetStatus(); } 
+        else { alert("파일 업로드에 실패했습니다."); }
+      } catch (err) { console.error(err); alert("백엔드 서버가 켜져 있는지 확인해 주세요."); }
     }
   };
 
-  // 🌟 바이패스(우회)를 지원하는 fetchDashboardData 함수
   const fetchDashboardData = async (bypass = false) => {
-    setLoading(true);
-    setCurrentPage(1); 
+    setLoading(true); setCurrentPage(1); 
     try {
       const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}&bypass=${bypass}`);
       const result = await response.json();
@@ -335,7 +317,6 @@ export default function Dashboard() {
           if (!monthMap[mKey]) monthMap[mKey] = [];
           monthMap[mKey].push(r);
         });
-        
         const monthlyData = Object.keys(monthMap).map((mKey) => {
           const group = monthMap[mKey];
           const count = group.length;
@@ -343,7 +324,6 @@ export default function Dashboard() {
           const validTMin = group.filter((r: any) => r.temp_min !== '--' && r.temp_min !== null);
           const validHum = group.filter((r: any) => r.humidity !== '--' && r.humidity !== null);
           const validPm = group.filter((r: any) => r.pm25 !== '--' && r.pm25 !== null);
-
           return {
             date: `${mKey}월`,
             usage_kwh: Math.round(group.reduce((acc: number, cur: any) => acc + cur.usage_kwh, 0)),
@@ -387,39 +367,25 @@ export default function Dashboard() {
 
   const runAIPrediction = async () => {
     if (!isDatasetReady) { alert("서버에 연동된 데이터셋이 없습니다. 관리자에게 업로드를 요청하세요."); return; }
-    setPredLoading(true);
-    setPredSummary(null);
-    setPredChartData([]);
-    setFeatChartData([]);
-
+    setPredLoading(true); setPredSummary(null); setPredChartData([]); setFeatChartData([]);
     try {
       const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
       const result = await response.json();
-      
       if (result.error) { alert(result.error); setPredLoading(false); return; }
-      setPredSummary(result.summary); 
-      setPredChartData(result.chart_data); 
-      setFeatChartData(result.feat_data);
+      setPredSummary(result.summary); setPredChartData(result.chart_data); setFeatChartData(result.feat_data);
     } catch (err) { console.error(err); alert('AI 예측 서버와 통신할 수 없습니다.'); } finally { setPredLoading(false); }
   };
 
   const fetchBillData = async () => {
     let targetStation = station;
-    if (stationsData['1호선'].includes(station)) {
-      targetStation = '1호선';
-      setStation('1호선');
-    }
+    if (stationsData['1호선'].includes(station)) { targetStation = '1호선'; setStation('1호선'); }
     setBillLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/bill/${encodeURIComponent(targetStation)}?year=${billYear}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setBillRecords([]); setBillLoading(false); return; }
-      setBillRecords(result.records || []);
-      setBillCustNo(result.cust_no || '');
-    } catch(err) {
-      console.error(err);
-      alert("전기요금 서버 통신 에러");
-    } finally { setBillLoading(false); }
+      setBillRecords(result.records || []); setBillCustNo(result.cust_no || '');
+    } catch(err) { console.error(err); alert("전기요금 서버 통신 에러"); } finally { setBillLoading(false); }
   };
 
   const handleExportExcel = () => {
@@ -427,18 +393,10 @@ export default function Dashboard() {
     let csvContent = "\uFEFF항목(일자/시간),사용량(kWh),최대수요(kW),CO2(tCO2),최고기온(°C),최저기온(°C),습도(%),PM2.5\n";
     rawRecords.forEach(row => {
       csvContent += `${row.date},${row.usage_kwh},${row.peak_kw},${row.co2},${row.temp_max},${row.temp_min},${row.humidity},${row.pm25}\n`;
-      if (row.details) {
-        row.details.forEach((d: any) => {
-          const co2 = (d.usage_kwh * 0.466 / 1000).toFixed(3);
-          csvContent += `${row.date} ${d.time},${d.usage_kwh},${d.peak_kw},${co2},-,-,-,-\n`;
-        });
-      }
+      if (row.details) { row.details.forEach((d: any) => { const co2 = (d.usage_kwh * 0.466 / 1000).toFixed(3); csvContent += `${row.date} ${d.time},${d.usage_kwh},${d.peak_kw},${co2},-,-,-,-\n`; }); }
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `${station}_통합대시보드_상세데이터.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_통합대시보드.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const handleExportCompareExcel = () => {
@@ -446,23 +404,15 @@ export default function Dashboard() {
     let csvContent = `\uFEFF월별,${baseYear}년_기준(kWh),${compYear}년_비교(kWh),증감량(kWh),증감률(%),요금증감(원)\n`;
     compRecords.forEach(row => { csvContent += `${row.month},${row.base_val},${row.comp_val},${row.diff},${row.diff_pct},${row.cost}\n`; });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `${station}_연도별전력비교_데이터.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_전력비교.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const handleExportBillExcel = () => {
     if (billRecords.length === 0) { alert("다운로드할 요금 데이터가 없습니다."); return; }
     let csvContent = "\uFEFF청구년월,정기검침일,요금적용전력(kW),기본요금(원),전력량요금(원),할인공제계(원),전기요금계(원),청구요금(원),경부하사용량(kWh),경부하당월지침,중부하사용량(kWh),중부하당월지침,최대부하사용량(kWh),최대부하당월지침,지상역률(%),진상역률(%)\n";
-    billRecords.forEach(row => {
-      csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.lload_needle},${row.mload_usekwh},${row.mload_needle},${row.maxload_usekwh},${row.maxload_needle},${row.ji_pwrfact},${row.jn_pwrfact}\n`;
-    });
+    billRecords.forEach(row => { csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.lload_needle},${row.mload_usekwh},${row.mload_needle},${row.maxload_usekwh},${row.maxload_needle},${row.ji_pwrfact},${row.jn_pwrfact}\n`; });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `${station}_${billYear}년_전기요금청구내역.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_${billYear}년_청구내역.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const indexOfLastRow = currentPage * rowsPerPage;
@@ -470,9 +420,7 @@ export default function Dashboard() {
   const currentRows = rawRecords.slice(indexOfFirstRow, indexOfLastRow);
   const totalPages = Math.ceil(rawRecords.length / rowsPerPage) || 1;
 
-  const Card = ({ children, style = {} }: any) => (
-    <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '24px', boxShadow: theme.shadow, border: `1px solid ${theme.border}`, ...style }}>{children}</div>
-  );
+  const Card = ({ children, style = {} }: any) => ( <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '24px', boxShadow: theme.shadow, border: `1px solid ${theme.border}`, ...style }}>{children}</div> );
 
   const StatCard = ({ title, value, unit, subtitle, subtitleColor = theme.textMuted, topColor }: any) => (
     <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '24px', boxShadow: theme.shadow, border: `1px solid ${theme.border}`, borderTop: `4px solid ${topColor}`, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -491,10 +439,7 @@ export default function Dashboard() {
     };
   };
 
-  const getTabStyle = (isActive: boolean) => ({
-    padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted,
-    border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease'
-  });
+  const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}>
@@ -530,7 +475,6 @@ export default function Dashboard() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* 좌측 사이드바 */}
         {mainTab !== 'report' && (
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
@@ -565,10 +509,8 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 메인 화면 영역 */}
         <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
           
-          {/* ===================== [1. 통합 대시보드 탭] ===================== */}
           {mainTab === 'dashboard' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
@@ -587,7 +529,6 @@ export default function Dashboard() {
                       <span style={{ color: theme.border }}>|</span>
                       <input type="date" min="2026-09-05" max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                     </div>
-                    {/* 일반 조회 (캐시 우선) */}
                     <button onClick={() => { fetchDashboardData(false); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
                     <button onClick={handleExportExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
                   </div>
@@ -597,7 +538,6 @@ export default function Dashboard() {
                       ※ 2026년 9월 5일(한국전력 연동 승인일)부터 조회 가능.
                     </div>
                     
-                    {/* 🌟 관리자 전용: 캐시 타임스탬프 및 강제 갱신 버튼 */}
                     {isAdmin && cachedAt && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: isCachedData ? '#F1F5F9' : '#ECFDF5', padding: '4px 10px', borderRadius: '8px' }}>
                         <span style={{ fontSize: '11px', color: isCachedData ? theme.textMuted : theme.success, fontWeight: 700 }}>
@@ -624,11 +564,34 @@ export default function Dashboard() {
                 <Card>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
-                    <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
-                      <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
-                      <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      {/* 🌟 목표 최대수요 설정 영역 (실시간 탭에서만 보이게) */}
+                      {chartMode === 'realtime' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#FEF2F2', padding: '4px 12px', borderRadius: '8px', border: `1px solid #FECACA` }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: theme.danger }}>🚨 피크 경고(kW)</span>
+                          <input 
+                            type="number" 
+                            value={peakThreshold} 
+                            onChange={e => setPeakThreshold(e.target.value)} 
+                            placeholder="미설정" 
+                            style={{ width: '60px', padding: '2px 6px', border: '1px solid #FCA5A5', borderRadius: '4px', fontSize: '12px', outline: 'none', textAlign: 'center' }} 
+                          />
+                          <button 
+                            onClick={handleSaveThreshold} 
+                            style={{ padding: '2px 8px', backgroundColor: theme.danger, color: '#FFF', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                            저장
+                          </button>
+                        </div>
+                      )}
+                      
+                      <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
+                        <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
+                        <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
+                      </div>
                     </div>
                   </div>
+                  
                   <div style={{ height: '320px', width: '100%' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
@@ -659,6 +622,19 @@ export default function Dashboard() {
                               <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
                               <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                               <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
+                              
+                              {/* 🌟 0보다 큰 임계치가 설정되어 있으면 그래프 위에 붉은 점선으로 표시 */}
+                              {activeThreshold > 0 && (
+                                <ReferenceLine 
+                                  y={activeThreshold} 
+                                  yAxisId="right" 
+                                  stroke={theme.danger} 
+                                  strokeDasharray="5 5" 
+                                  strokeWidth={2}
+                                  label={{ position: 'insideTopLeft', value: `🚨 경고치 (${activeThreshold}kW)`, fill: theme.danger, fontSize: 12, fontWeight: 700 }} 
+                                />
+                              )}
+
                               <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} />
                               <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} dot={(props: any) => {
                                 const { cx, cy, payload } = props;
