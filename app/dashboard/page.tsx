@@ -91,9 +91,13 @@ export default function Dashboard() {
   const [realtimeLoading, setRealtimeLoading] = useState(false);
   const [weatherTab, setWeatherTab] = useState('temp');
   
+  // 🌟 캐시 상태 변수
+  const [cachedAt, setCachedAt] = useState('');
+  const [isCachedData, setIsCachedData] = useState(false);
+  
   const maxDate = getLocalISODate();
   
-  // 🌟 초기 날짜 세팅 시 9월 5일 이전으로 넘어가지 않도록 방어 로직 추가
+  // 🌟 9월 5일 이전 선택 방어 로직
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
     const calculatedDate = getLocalISODate(d);
@@ -303,13 +307,17 @@ export default function Dashboard() {
     }
   };
 
-  const fetchDashboardData = async () => {
+  // 🌟 바이패스(우회)를 지원하는 fetchDashboardData 함수
+  const fetchDashboardData = async (bypass = false) => {
     setLoading(true);
     setCurrentPage(1); 
     try {
-      const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}`);
+      const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}&bypass=${bypass}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setLoading(false); return; }
+
+      setCachedAt(result.cached_at || '');
+      setIsCachedData(result.is_cached || false);
 
       const records = result.daily_records || [];
       setRawRecords([...records].reverse());
@@ -573,19 +581,35 @@ export default function Dashboard() {
                 
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {/* 🌟 min 속성을 통해 2026년 9월 5일 이전 날짜 원천 차단 */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
                       <input type="date" min="2026-09-05" max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                       <span style={{ color: theme.border }}>|</span>
                       <input type="date" min="2026-09-05" max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                     </div>
-                    <button onClick={() => { fetchDashboardData(); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
+                    {/* 일반 조회 (캐시 우선) */}
+                    <button onClick={() => { fetchDashboardData(false); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
                     <button onClick={handleExportExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
                   </div>
-                  {/* 🌟 하단 9월 5일 안내 텍스트 추가 */}
-                  <div style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600, marginRight: '4px' }}>
-                    ※ 2026년 9월 5일(한국전력 API 연동 승인일)부터 조회 가능합니다.
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginTop: '4px' }}>
+                    <div style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600, paddingLeft: '4px' }}>
+                      ※ 2026년 9월 5일(한국전력 연동 승인일)부터 조회 가능.
+                    </div>
+                    
+                    {/* 🌟 관리자 전용: 캐시 타임스탬프 및 강제 갱신 버튼 */}
+                    {isAdmin && cachedAt && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: isCachedData ? '#F1F5F9' : '#ECFDF5', padding: '4px 10px', borderRadius: '8px' }}>
+                        <span style={{ fontSize: '11px', color: isCachedData ? theme.textMuted : theme.success, fontWeight: 700 }}>
+                          ⏱ 데이터 기준: {cachedAt} ({isCachedData ? '캐시됨' : '방금 갱신됨'})
+                        </span>
+                        <button 
+                          onClick={() => { fetchDashboardData(true); if (chartMode === 'realtime') fetchRealtimeData(); }} 
+                          style={{ padding: '4px 8px', backgroundColor: '#FEF2F2', color: theme.danger, border: `1px solid #FECACA`, borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>
+                          🔄 강제 갱신
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
