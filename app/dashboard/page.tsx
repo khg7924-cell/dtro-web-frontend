@@ -440,8 +440,10 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 좌/우 Y축 스케일 동일하게 30% 패딩 유지
+  // 🌟 좌/우 Y축 스케일 동일하게 30% 패딩 유지
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
+  const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
+  
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
@@ -467,6 +469,7 @@ export default function Dashboard() {
   // 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널)
   const CustomThresholdLabel = (props: any) => {
     const { viewBox } = props;
+    // 🌟 버튼이 Y축 숫자를 가리지 않도록 위치를 더 우측(+35px)으로 이동
     const rightEdge = viewBox.x + viewBox.width;
     const yPos = viewBox.y;
     const isUnsaved = activeThreshold !== dbThreshold;
@@ -517,7 +520,7 @@ export default function Dashboard() {
               fontSize: '11px',
               fontWeight: 800,
               boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-              cursor: 'pointer', // 손가락 모양 커서
+              cursor: 'pointer', // 🌟 손가락 모양 커서 유지
               whiteSpace: 'nowrap',
               margin: '0',
               width: '100%',
@@ -726,6 +729,7 @@ export default function Dashboard() {
                                 return null;
                               }} />
                               
+                              {/* 🌟 마우스로 직접 잡고 끌어당길 수 있는 ReferenceLine (렌더링 순서 최하단) */}
                               {(isAdmin || activeThreshold > 0) && (
                                 <ReferenceLine 
                                   y={activeThreshold} 
@@ -733,6 +737,15 @@ export default function Dashboard() {
                                   stroke={isUnsaved ? '#FF832B' : theme.danger} 
                                   strokeDasharray="5 5" 
                                   strokeWidth={3}
+                                  style={{ cursor: isAdmin ? 'ns-resize' : 'default' }}
+                                  onMouseDown={(e: any) => {
+                                    if (isAdmin) {
+                                      e.stopPropagation();
+                                      isDraggingRef.current = true;
+                                      dragStartYRef.current = e.clientY;
+                                      dragStartValueRef.current = activeThreshold;
+                                    }
+                                  }}
                                   label={<CustomThresholdLabel />}
                                 />
                               )}
@@ -1336,7 +1349,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ===================== [관리자 전용] 급전 계통 매핑 모달 ===================== */}
+      {/* ===================== [관리 전용] 급전 계통 매핑 모달 ===================== */}
       {showMappingModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '400px', boxShadow: theme.shadow }}>
