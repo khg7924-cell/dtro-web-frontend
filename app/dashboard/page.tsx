@@ -52,7 +52,8 @@ export default function Dashboard() {
   useEffect(() => {
     const storedId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '알수없음';
     setUserId(storedId);
-    setIsAdmin(storedId === '20140165');
+    const adminCheck = storedId === '20140165';
+    setIsAdmin(adminCheck);
     checkDatasetStatus();
 
     try {
@@ -187,17 +188,17 @@ export default function Dashboard() {
     const unsub = onValue(thRef, (snapshot) => {
       const val = snapshot.exists() ? Number(snapshot.val()) : 0;
       setDbThreshold(val);
-      setActiveThreshold(val);
+      // 관리자일 경우 미설정(0) 상태라도 드래그 바를 보여주기 위해 기본값(100) 노출
+      if (val === 0 && isAdmin) setActiveThreshold(100);
+      else setActiveThreshold(val);
     });
     return () => unsub();
-  }, [station]);
+  }, [station, isAdmin]);
 
   // 🌟 파이어베이스 및 파이썬 서버에 임계치 동시 저장
   const handleSaveThreshold = async () => {
     try {
-      // 1. Firebase 영구 저장
       await update(ref(db, 'peak_thresholds'), { [station]: activeThreshold });
-      // 2. 파이썬 백엔드 RAM(스케줄러) 동기화
       const res = await fetch(`${API_URL}/api/threshold/${encodeURIComponent(station)}?limit=${activeThreshold}`, { method: 'POST' });
       if(res.ok) {
         alert(`🚨 [${station}] 경고 기준선이 ${activeThreshold}kW로 영구 저장되었습니다.\n해당 수치 도달 시 카카오워크로 자동 알림이 발송됩니다.`);
@@ -435,10 +436,59 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 차트 Y축 여유 공간 확보 (데이터 최대치의 1.3배 또는 설정값의 1.1배)
+  // 🌟 차트 축 30% 여유 공간 확보 함수
+  const getLeftYAxisDomain = (dataMax: number) => Math.ceil((dataMax * 1.3) / 100) * 100 || 1000;
   const getRightYAxisDomain = (dataMax: number) => {
-    const maxTarget = Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0);
-    return Math.ceil(maxTarget / 10) * 10 || 100; // 데이터가 0일 때 대비 기본값 100
+    const maxTarget = Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0);
+    return Math.ceil(maxTarget / 10) * 10 || 100;
+  };
+
+  // 🌟 점선 끝에 달릴 관리자 조작용 라벨(버튼 패널)
+  const CustomThresholdLabel = (props: any) => {
+    const { viewBox } = props;
+    const { y, width } = viewBox;
+    const isUnsaved = activeThreshold !== dbThreshold;
+
+    if (!isAdmin) {
+      // 일반 사용자는 조작 패널 없이 텍스트만 렌더링
+      return (
+        <text x={width - 10} y={y - 8} fill={theme.danger} fontSize="12px" fontWeight="700" textAnchor="end">
+          🚨 경고선 ({activeThreshold}kW)
+        </text>
+      );
+    }
+
+    return (
+      <foreignObject x={width - 170} y={y - 15} width={160} height={30} style={{ overflow: 'visible' }}>
+        <div style={{ 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', 
+          background: isUnsaved ? '#FF832B' : theme.danger, // 미저장시 주황색
+          padding: '4px 8px', borderRadius: '16px', color: '#FFF', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.3)', border: '1px solid #FFF' 
+        }}>
+          {/* 하강 버튼 */}
+          <button 
+            onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => Math.max(0, p - 10)); }} 
+            style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: 0 }}
+          >▼</button>
+          
+          {/* 저장 버튼 (숫자 자체) */}
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleSaveThreshold(); }} 
+            style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer', fontWeight: 800, fontSize: '12px', padding: 0, flex: 1 }} 
+            title="클릭하여 현재 값을 저장"
+          >
+            {activeThreshold} kW {isUnsaved ? '💾' : '✔'}
+          </button>
+
+          {/* 상승 버튼 */}
+          <button 
+            onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => p + 10); }} 
+            style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: 0 }}
+          >▲</button>
+        </div>
+      </foreignObject>
+    );
   };
 
   return (
@@ -567,32 +617,6 @@ export default function Dashboard() {
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      {/* 🌟 슬라이더 기반 임계치 시각화 및 Firebase 연동 */}
-                      {isAdmin && chartMode === 'realtime' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#FEF2F2', padding: '6px 14px', borderRadius: '12px', border: `1px solid #FECACA` }}>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: theme.danger }}>🚨 경고선 조절</span>
-                          <input 
-                            type="range" 
-                            min="0" 
-                            max={Math.max(1000, Math.ceil(Math.max(...realtimeData.map(d => d.peak_kw || 0)) * 2))}
-                            step="10" 
-                            value={activeThreshold} 
-                            onChange={(e) => setActiveThreshold(Number(e.target.value))} 
-                            style={{ width: '100px', cursor: 'pointer', accentColor: theme.danger }} 
-                          />
-                          <span style={{ fontSize: '14px', fontWeight: 800, color: theme.danger, minWidth: '60px' }}>{activeThreshold} kW</span>
-                          
-                          {/* Firebase DB 값과 슬라이더 값이 다를 때만 저장 버튼 표시 */}
-                          {activeThreshold !== dbThreshold && (
-                            <button 
-                              onClick={handleSaveThreshold} 
-                              style={{ padding: '4px 8px', backgroundColor: theme.danger, color: '#FFF', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
-                              저장 및 적용
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      
                       <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
                         <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
                         <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
@@ -607,8 +631,8 @@ export default function Dashboard() {
                           <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                             <XAxis dataKey="date" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                            {/* 🌟 Y축 상단 30% 패딩 적용 */}
+                            {/* 🌟 좌우측 Y축 30% 여유공간(Padding) 일괄 적용 */}
+                            <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
                             <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                             <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                             <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
@@ -627,21 +651,21 @@ export default function Dashboard() {
                             <ComposedChart data={realtimeData} margin={{ top: 15, right: 0, left: -20, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                               <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-                              <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
-                              {/* 🌟 Y축 상단 30% 패딩 적용 */}
+                              {/* 🌟 좌우측 Y축 30% 여유공간(Padding) 일괄 적용 */}
+                              <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
                               <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                               <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
                               <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
                               
-                              {/* 🌟 슬라이더와 연동되어 실시간으로 움직이는 ReferenceLine */}
-                              {activeThreshold > 0 && (
+                              {/* 🌟 그래프상에 조작 컨트롤러를 띄운 ReferenceLine */}
+                              {(isAdmin || activeThreshold > 0) && (
                                 <ReferenceLine 
                                   y={activeThreshold} 
                                   yAxisId="right" 
-                                  stroke={theme.danger} 
+                                  stroke={activeThreshold !== dbThreshold ? '#FF832B' : theme.danger} 
                                   strokeDasharray="5 5" 
                                   strokeWidth={2}
-                                  label={{ position: 'insideTopLeft', value: `🚨 경고선 (${activeThreshold}kW)`, fill: theme.danger, fontSize: 12, fontWeight: 700 }} 
+                                  label={<CustomThresholdLabel />} 
                                 />
                               )}
 
