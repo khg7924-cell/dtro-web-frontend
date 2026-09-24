@@ -52,8 +52,7 @@ export default function Dashboard() {
   useEffect(() => {
     const storedId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || '알수없음';
     setUserId(storedId);
-    const adminCheck = storedId === '20140165';
-    setIsAdmin(adminCheck);
+    setIsAdmin(storedId === '20140165');
     checkDatasetStatus();
 
     try {
@@ -95,9 +94,11 @@ export default function Dashboard() {
   const [cachedAt, setCachedAt] = useState('');
   const [isCachedData, setIsCachedData] = useState(false);
   
+  // 임계치 상태 관리
   const [activeThreshold, setActiveThreshold] = useState<number>(0); 
   const [dbThreshold, setDbThreshold] = useState<number>(0);
 
+  // 🌟 드래그 상태를 추적하기 위한 레프
   const isDraggingRef = useRef(false);
   const chartBoxRef = useRef<HTMLDivElement | null>(null);
 
@@ -436,12 +437,12 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 과도한 올림 처리를 삭제하고 정확히 30% 여유만 확보
-  const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 100;
+  // 30% 여유공간 스케일
+  const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
-  // 🌟 드래그 좌표 계산 핸들러
+  // 🌟 차트 영역 내 어디서든 마우스를 누른 채 위아래로 끌면 선이 부드럽게 연동되도록 마우스 무브 연동
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
     const rect = chartBoxRef.current.getBoundingClientRect();
@@ -596,6 +597,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
+                  {/* 🌟 드래그 영역 컨테이너 */}
                   <div ref={chartBoxRef} style={{ height: '320px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
@@ -651,6 +653,7 @@ export default function Dashboard() {
                                   return null;
                                 }} />
                                 
+                                {/* 🌟 마우스를 누르고 선을 직접 잡고 끌어당길 수 있는 ReferenceLine */}
                                 {(isAdmin || activeThreshold > 0) && (
                                   <ReferenceLine 
                                     y={activeThreshold} 
@@ -670,6 +673,7 @@ export default function Dashboard() {
                               </ComposedChart>
                             </ResponsiveContainer>
 
+                            {/* 🌟 그래프 바깥(우측 끝)에 매달려 실시간으로 같이 움직이는 값 표시 및 저장 버튼 */}
                             {(isAdmin || activeThreshold > 0) && (
                               <div 
                                 style={{
@@ -681,14 +685,9 @@ export default function Dashboard() {
                                   userSelect: 'none',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  alignItems: 'center',
-                                  gap: '2px'
+                                  alignItems: 'center'
                                 }}
                               >
-                                {isAdmin && (
-                                  <button onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => p + 10); }} style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: 0 }}>▲</button>
-                                )}
-                                
                                 <button
                                   onClick={handleSaveThreshold}
                                   disabled={!isAdmin}
@@ -703,16 +702,12 @@ export default function Dashboard() {
                                     boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                                     cursor: isAdmin ? 'pointer' : 'default',
                                     whiteSpace: 'nowrap',
-                                    transition: 'all 0.15s ease'
+                                    transition: 'top 0.05s linear' // 부드럽고 빠른 이동 애니메이션
                                   }}
                                   title={isAdmin ? (isUnsaved ? "클릭하여 영구 저장" : "기준치 적용 상태") : "현재 설정된 경고치"}
                                 >
                                   🚨 {activeThreshold} kW {isUnsaved ? '💾' : '✔'}
                                 </button>
-
-                                {isAdmin && (
-                                  <button onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => Math.max(0, p - 10)); }} style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: 0 }}>▼</button>
-                                )}
                               </div>
                             )}
                           </>
@@ -1167,7 +1162,7 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(중)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(최대)</th>
-                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>지상역률(%)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>지상역률(%)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
                       </tr>
                     </thead>
