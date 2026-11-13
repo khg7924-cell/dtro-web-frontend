@@ -368,7 +368,8 @@ export default function Dashboard() {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setPredLoading(true); setPredSummary(null); setPredChartData([]); setFeatChartData([]);
     try {
-      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
+      const reportsParam = encodeURIComponent(JSON.stringify(reports));
+      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}&reports_data=${reportsParam}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setPredLoading(false); return; }
       setPredSummary(result.summary); setPredChartData(result.chart_data); setFeatChartData(result.feat_data);
@@ -411,7 +412,7 @@ export default function Dashboard() {
     let csvContent = "\uFEFF청구년월,정기검침일,요금적용전력(kW),기본요금(원),전력량요금(원),할인공제계(원),전기요금계(원),청구요금(원),경부하사용량(kWh),경부하당월지침,중부하사용량(kWh),중부하당월지침,최대부하사용량(kWh),최대부하당월지침,지상역률(%),진상역률(%)\n";
     billRecords.forEach(row => { csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.lload_needle},${row.mload_usekwh},${row.mload_needle},${row.maxload_usekwh},${row.maxload_needle},${row.ji_pwrfact},${row.jn_pwrfact}\n`; });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_${billYear}년_청구내역.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_청구내역.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const indexOfLastRow = currentPage * rowsPerPage;
@@ -440,14 +441,12 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 좌/우 Y축 30% 패딩
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
   
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
-  // 드래그 좌표 계산 핸들러
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
     const rect = chartBoxRef.current.getBoundingClientRect();
@@ -466,7 +465,6 @@ export default function Dashboard() {
     isDraggingRef.current = false;
   };
 
-  // 점선 끝에 달릴 조작용 라벨(버튼 패널)
   const CustomThresholdLabel = (props: any) => {
     const { viewBox } = props;
     const rightEdge = viewBox.x + viewBox.width;
@@ -474,7 +472,6 @@ export default function Dashboard() {
     const isUnsaved = activeThreshold !== dbThreshold;
 
     if (!isAdmin) {
-      // 🌟 일반 사용자에게도 예쁜 뱃지 형태로 표출 (조작 및 저장 버튼 제외)
       return (
         <foreignObject 
           x={rightEdge + 35} 
@@ -608,8 +605,10 @@ export default function Dashboard() {
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
+              
+              {/* 🌟 1. 전체 (1호선, 2호선, 3호선만 포함) */}
               <button onClick={() => { toggleMenu('전체'); setStation('전체'); }} style={getBtnStyle('전체')}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체 (1~3호선)</span>
                 <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus['전체'] ? '▼' : '▶'}</span>
               </button>
               {openMenus['전체'] && (
@@ -631,9 +630,15 @@ export default function Dashboard() {
                       </div>
                     );
                   })}
-                  <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span></button>
                 </div>
               )}
+
+              {/* 🌟 2. 종합청사 (전체 트리에서 완전히 분리하여 독립 배치) */}
+              <div style={{ height: '1px', backgroundColor: theme.border, margin: '8px 12px' }} />
+              <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span>
+              </button>
+
             </div>
           </div>
         )}
@@ -645,7 +650,7 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 통합 분석 현황</h2>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station === '전체' ? '전체 (1~3호선)' : station} 통합 분석 현황</h2>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#EFF6FF', color: theme.primary, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>📍</span> 연동: {mappedLocation}
                   </div>
@@ -918,7 +923,7 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 연도별 전력 비교</h2>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station === '전체' ? '전체 (1~3호선)' : station} 연도별 전력 비교</h2>
                   <p style={{ margin: 0, color: theme.textMuted }}>동일 개소의 과거와 현재 전력 사용량 및 요금을 분석합니다.</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1045,7 +1050,7 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} AI 전력 수요 예측</h2>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station === '전체' ? '전체 (1~3호선)' : station} AI 전력 수요 예측</h2>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(232, 62, 140, 0.1)', color: theme.ai, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 700 }}>
                     <span style={{ fontSize: '1rem' }}>🧠</span> XGBoost Regressor 기반 초정밀 예측 모델
                   </div>
