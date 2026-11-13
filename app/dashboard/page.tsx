@@ -95,11 +95,9 @@ export default function Dashboard() {
   const [cachedAt, setCachedAt] = useState('');
   const [isCachedData, setIsCachedData] = useState(false);
   
-  // 임계치 상태 관리
   const [activeThreshold, setActiveThreshold] = useState<number>(0); 
   const [dbThreshold, setDbThreshold] = useState<number>(0);
 
-  // 드래그 상태 관리
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const dragStartValueRef = useRef(0);
@@ -115,6 +113,8 @@ export default function Dashboard() {
 
   const [baseYear, setBaseYear] = useState('2024');
   const [compYear, setCompYear] = useState('2025');
+  const [compStartMonth, setCompStartMonth] = useState('1');
+  const [compEndMonth, setCompEndMonth] = useState('12');
   const [unitPrice, setUnitPrice] = useState('150');
   const [compRecords, setCompRecords] = useState<any[]>([]);
   const [compSummary, setCompSummary] = useState<any>({});
@@ -355,7 +355,7 @@ export default function Dashboard() {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setCompLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}`);
+      const response = await fetch(`${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}&start_month=${compStartMonth}&end_month=${compEndMonth}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setCompLoading(false); return; }
       setCompRecords(result.records || []);
@@ -364,6 +364,7 @@ export default function Dashboard() {
     } catch (err) { console.error(err); alert('통신 실패'); } finally { setCompLoading(false); }
   };
 
+  // 🌟 원본 예측 호출 방식 100% 복원
   const runAIPrediction = async () => {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setPredLoading(true); setPredSummary(null); setPredChartData([]); setFeatChartData([]);
@@ -440,14 +441,12 @@ export default function Dashboard() {
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
-  // 🌟 좌/우 Y축 30% 패딩
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
   
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
 
-  // 드래그 좌표 계산 핸들러
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
     const rect = chartBoxRef.current.getBoundingClientRect();
@@ -466,7 +465,6 @@ export default function Dashboard() {
     isDraggingRef.current = false;
   };
 
-  // 점선 끝에 달릴 조작용 라벨(버튼 패널)
   const CustomThresholdLabel = (props: any) => {
     const { viewBox } = props;
     const rightEdge = viewBox.x + viewBox.width;
@@ -474,7 +472,6 @@ export default function Dashboard() {
     const isUnsaved = activeThreshold !== dbThreshold;
 
     if (!isAdmin) {
-      // 🌟 일반 사용자에게도 예쁜 뱃지 형태로 표출 (조작 및 저장 버튼 제외)
       return (
         <foreignObject 
           x={rightEdge + 35} 
@@ -631,9 +628,11 @@ export default function Dashboard() {
                       </div>
                     );
                   })}
-                  <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}><span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span></button>
                 </div>
               )}
+              <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span>
+              </button>
             </div>
           </div>
         )}
@@ -947,6 +946,33 @@ export default function Dashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>비교연도</span>
                       <input type="text" value={compYear} onChange={(e) => setCompYear(e.target.value)} style={{ width: '48px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
+                    </div>
+                    <span style={{ color: theme.border }}>|</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
+                      <select 
+                        value={compStartMonth} 
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setCompStartMonth(v);
+                          if (Number(v) > Number(compEndMonth)) setCompEndMonth(v);
+                        }}
+                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px' }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
+                      </select>
+                      <span>~</span>
+                      <select 
+                        value={compEndMonth} 
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setCompEndMonth(v);
+                          if (Number(v) < Number(compStartMonth)) setCompStartMonth(v);
+                        }}
+                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px' }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
+                      </select>
                     </div>
                     <span style={{ color: theme.border }}>|</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
