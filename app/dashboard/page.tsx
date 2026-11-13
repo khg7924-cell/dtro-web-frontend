@@ -364,7 +364,6 @@ export default function Dashboard() {
     } catch (err) { console.error(err); alert('통신 실패'); } finally { setCompLoading(false); }
   };
 
-  // 🌟 원본 예측 호출 방식 100% 복원
   const runAIPrediction = async () => {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setPredLoading(true); setPredSummary(null); setPredChartData([]); setFeatChartData([]);
@@ -683,9 +682,10 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* 🌟 1. 통합 대시보드: 누적 전력 사용량 및 최대 수요 전력 정수 반올림 표기 */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
-                <StatCard title="누적 전력 사용량" value={loading ? '...' : (summary.total_usage?.toLocaleString() || 0)} unit="kWh" topColor={theme.primary} />
-                <StatCard title="최대 수요 전력 (Peak)" value={loading ? '...' : (summary.max_peak?.toLocaleString() || 0)} unit="kW" topColor={theme.danger} />
+                <StatCard title="누적 전력 사용량" value={loading ? '...' : Math.round(summary.total_usage || 0).toLocaleString()} unit="kWh" topColor={theme.primary} />
+                <StatCard title="최대 수요 전력 (Peak)" value={loading ? '...' : Math.round(summary.max_peak || 0).toLocaleString()} unit="kW" topColor={theme.danger} />
                 <StatCard title="총 예상 탄소배출량" value={loading ? '...' : (summary.total_co2?.toLocaleString() || 0)} unit="tCO2" topColor={theme.success} />
               </div>
 
@@ -985,10 +985,31 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* 🌟 2. 연도별 비교 탭: 총 사용량, 기준연도 사용량, 전력량 증감, 요금 증감액 정수 반올림 표기 */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
-                <StatCard title={`${compYear}년 총 사용량`} value={compLoading ? '...' : (compSummary.total_comp?.toLocaleString() || 0)} unit="kWh" subtitle={compLoading ? '...' : `${baseYear}년(기준): ${compSummary.total_base?.toLocaleString() || 0} kWh`} topColor={theme.secondary} />
-                <StatCard title="전력량 증감" value={compLoading ? '...' : `${compSummary.diff > 0 ? '+' : ''}${compSummary.diff?.toLocaleString() || 0}`} unit="kWh" subtitle={compLoading ? '...' : `전년 대비 ${compSummary.diff_pct > 0 ? '+' : ''}${compSummary.diff_pct || 0}%`} subtitleColor={compSummary.diff > 0 ? theme.danger : theme.success} topColor={compSummary.diff > 0 ? theme.danger : theme.success} />
-                <StatCard title="예상 전기요금 증감액" value={compLoading ? '...' : `${compSummary.cost > 0 ? '+' : ''}${compSummary.cost?.toLocaleString() || 0}`} unit="원" subtitle={compLoading ? '...' : (compSummary.cost > 0 ? '요금 상승 추정' : '요금 절감 추정')} subtitleColor={compSummary.cost > 0 ? theme.danger : theme.success} topColor={compSummary.cost > 0 ? theme.danger : theme.success} />
+                <StatCard 
+                  title={`${compYear}년 총 사용량`} 
+                  value={compLoading ? '...' : Math.round(compSummary.total_comp || 0).toLocaleString()} 
+                  unit="kWh" 
+                  subtitle={compLoading ? '...' : `${baseYear}년(기준): ${Math.round(compSummary.total_base || 0).toLocaleString()} kWh`} 
+                  topColor={theme.secondary} 
+                />
+                <StatCard 
+                  title="전력량 증감" 
+                  value={compLoading ? '...' : `${Math.round(compSummary.diff || 0) > 0 ? '+' : ''}${Math.round(compSummary.diff || 0).toLocaleString()}`} 
+                  unit="kWh" 
+                  subtitle={compLoading ? '...' : `전년 대비 ${compSummary.diff_pct > 0 ? '+' : ''}${compSummary.diff_pct || 0}%`} 
+                  subtitleColor={compSummary.diff > 0 ? theme.danger : theme.success} 
+                  topColor={compSummary.diff > 0 ? theme.danger : theme.success} 
+                />
+                <StatCard 
+                  title="예상 전기요금 증감액" 
+                  value={compLoading ? '...' : `${Math.round(compSummary.cost || 0) > 0 ? '+' : ''}${Math.round(compSummary.cost || 0).toLocaleString()}`} 
+                  unit="원" 
+                  subtitle={compLoading ? '...' : (compSummary.cost > 0 ? '요금 상승 추정' : '요금 절감 추정')} 
+                  subtitleColor={compSummary.cost > 0 ? theme.danger : theme.success} 
+                  topColor={compSummary.cost > 0 ? theme.danger : theme.success} 
+                />
               </div>
 
               <Card style={{ marginBottom: '32px' }}>
@@ -1038,11 +1059,11 @@ export default function Dashboard() {
                         compRecords.map((row, idx) => (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
                             <td style={{ padding: '16px', fontWeight: 700, color: theme.textMain }}>{row.month}</td>
-                            <td style={{ padding: '16px', color: theme.textMuted, fontWeight: 500 }}>{row.base_val.toLocaleString()}</td>
-                            <td style={{ padding: '16px', color: theme.secondary, fontWeight: 700 }}>{row.comp_val.toLocaleString()}</td>
-                            <td style={{ padding: '16px', fontWeight: 600, color: row.diff > 0 ? theme.danger : theme.success }}><span style={{ backgroundColor: row.diff > 0 ? '#FEF2F2' : '#ECFDF5', padding: '4px 10px', borderRadius: '20px' }}>{row.diff > 0 ? '+' : ''}{row.diff.toLocaleString()}</span></td>
+                            <td style={{ padding: '16px', color: theme.textMuted, fontWeight: 500 }}>{Math.round(row.base_val).toLocaleString()}</td>
+                            <td style={{ padding: '16px', color: theme.secondary, fontWeight: 700 }}>{Math.round(row.comp_val).toLocaleString()}</td>
+                            <td style={{ padding: '16px', fontWeight: 600, color: row.diff > 0 ? theme.danger : theme.success }}><span style={{ backgroundColor: row.diff > 0 ? '#FEF2F2' : '#ECFDF5', padding: '4px 10px', borderRadius: '20px' }}>{Math.round(row.diff) > 0 ? '+' : ''}{Math.round(row.diff).toLocaleString()}</span></td>
                             <td style={{ padding: '16px', fontWeight: 700, color: row.diff_pct > 0 ? theme.danger : theme.success }}>{row.diff_pct > 0 ? '+' : ''}{row.diff_pct}%</td>
-                            <td style={{ padding: '16px', fontWeight: 600, color: row.cost > 0 ? theme.danger : theme.success }}>{row.cost > 0 ? '+' : ''}{row.cost.toLocaleString()}</td>
+                            <td style={{ padding: '16px', fontWeight: 600, color: row.cost > 0 ? theme.danger : theme.success }}>{Math.round(row.cost) > 0 ? '+' : ''}{Math.round(row.cost).toLocaleString()}</td>
                           </tr>
                         ))
                       )}
@@ -1125,21 +1146,22 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* 🌟 3. AI 수요 예측 탭: 예상 연간 총 전력량 및 최대 수요(Peak) 정수 반올림 표기 */}
               {predSummary && !predLoading && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                   <StatCard 
                     title="예상 연간 총 전력량" 
-                    value={predSummary.tot_future.toLocaleString()} 
+                    value={Math.round(predSummary.tot_future || 0).toLocaleString()} 
                     unit="kWh" 
-                    subtitle={`직전 연도(${Number(targetYear)-1}년) 대비 ${predSummary.tot_future > predSummary.last_tot ? '+' : ''}${(predSummary.tot_future - predSummary.last_tot).toLocaleString()} kWh 증감`} 
+                    subtitle={`직전 연도(${Number(targetYear)-1}년) 대비 ${Math.round((predSummary.tot_future || 0) - (predSummary.last_tot || 0)) > 0 ? '+' : ''}${Math.round((predSummary.tot_future || 0) - (predSummary.last_tot || 0)).toLocaleString()} kWh 증감`} 
                     subtitleColor={predSummary.tot_future > predSummary.last_tot ? theme.danger : theme.success} 
                     topColor={theme.ai} 
                   />
                   <StatCard 
                     title="예상 연간 최대 수요 (Peak)" 
-                    value={predSummary.peak_future.toLocaleString()} 
+                    value={Math.round(predSummary.peak_future || 0).toLocaleString()} 
                     unit="kW" 
-                    subtitle={`직전 연도(${Number(targetYear)-1}년) 대비 ${predSummary.peak_future > predSummary.last_peak ? '+' : ''}${(predSummary.peak_future - predSummary.last_peak).toLocaleString()} kW 증감`} 
+                    subtitle={`직전 연도(${Number(targetYear)-1}년) 대비 ${Math.round((predSummary.peak_future || 0) - (predSummary.last_peak || 0)) > 0 ? '+' : ''}${Math.round((predSummary.peak_future || 0) - (predSummary.last_peak || 0)).toLocaleString()} kW 증감`} 
                     subtitleColor={predSummary.peak_future > predSummary.last_peak ? theme.danger : theme.success} 
                     topColor={theme.danger} 
                   />
