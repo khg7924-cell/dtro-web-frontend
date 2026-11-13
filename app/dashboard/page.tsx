@@ -95,11 +95,9 @@ export default function Dashboard() {
   const [cachedAt, setCachedAt] = useState('');
   const [isCachedData, setIsCachedData] = useState(false);
   
-  // 임계치 상태 관리
   const [activeThreshold, setActiveThreshold] = useState<number>(0); 
   const [dbThreshold, setDbThreshold] = useState<number>(0);
 
-  // 드래그 상태 관리
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const dragStartValueRef = useRef(0);
@@ -113,7 +111,6 @@ export default function Dashboard() {
   });
   const [endDate, setEndDate] = useState(() => getLocalISODate());
 
-  // 🌟 연도별 비교 상태 (시작월, 종료월 추가)
   const [baseYear, setBaseYear] = useState('2024');
   const [compYear, setCompYear] = useState('2025');
   const [compStartMonth, setCompStartMonth] = useState('1');
@@ -354,14 +351,11 @@ export default function Dashboard() {
     } catch (err) { console.error(err); } finally { setRealtimeLoading(false); }
   };
 
-  // 🌟 월 단위 기간 파라미터(start_month, end_month) 추가 전달
   const fetchCompareData = async () => {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setCompLoading(true);
     try {
-      const response = await fetch(
-        `${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}&start_month=${compStartMonth}&end_month=${compEndMonth}`
-      );
+      const response = await fetch(`${API_URL}/api/compare/${encodeURIComponent(station)}?base_year=${baseYear}&comp_year=${compYear}&price=${unitPrice}&start_month=${compStartMonth}&end_month=${compEndMonth}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setCompLoading(false); return; }
       setCompRecords(result.records || []);
@@ -370,12 +364,12 @@ export default function Dashboard() {
     } catch (err) { console.error(err); alert('통신 실패'); } finally { setCompLoading(false); }
   };
 
+  // 🌟 원본 예측 호출 방식 100% 복원
   const runAIPrediction = async () => {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setPredLoading(true); setPredSummary(null); setPredChartData([]); setFeatChartData([]);
     try {
-      const reportsParam = encodeURIComponent(JSON.stringify(reports));
-      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}&reports_data=${reportsParam}`);
+      const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setPredLoading(false); return; }
       setPredSummary(result.summary); setPredChartData(result.chart_data); setFeatChartData(result.feat_data);
@@ -407,11 +401,10 @@ export default function Dashboard() {
 
   const handleExportCompareExcel = () => {
     if (compRecords.length === 0) { alert("다운로드할 비교 데이터가 없습니다."); return; }
-    const periodStr = compStartMonth === compEndMonth ? `${compStartMonth}월` : `${compStartMonth}월_${compEndMonth}월`;
     let csvContent = `\uFEFF월별,${baseYear}년_기준(kWh),${compYear}년_비교(kWh),증감량(kWh),증감률(%),요금증감(원)\n`;
     compRecords.forEach(row => { csvContent += `${row.month},${row.base_val},${row.comp_val},${row.diff},${row.diff_pct},${row.cost}\n`; });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_전력비교_${baseYear}vs${compYear}_${periodStr}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_전력비교.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const handleExportBillExcel = () => {
@@ -571,8 +564,6 @@ export default function Dashboard() {
     );
   };
 
-  const currentPeriodLabel = compSummary.period_label || (compStartMonth === compEndMonth ? `${compStartMonth}월` : `${compStartMonth}월~${compEndMonth}월`);
-
   return (
     <div 
       onMouseMove={handleMouseMove} 
@@ -614,10 +605,8 @@ export default function Dashboard() {
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              
-              {/* 1. 전체 (1~3호선) */}
               <button onClick={() => { toggleMenu('전체'); setStation('전체'); }} style={getBtnStyle('전체')}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체 (1~3호선)</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체</span>
                 <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus['전체'] ? '▼' : '▶'}</span>
               </button>
               {openMenus['전체'] && (
@@ -641,13 +630,9 @@ export default function Dashboard() {
                   })}
                 </div>
               )}
-
-              {/* 2. 종합청사 (독립 배치) */}
-              <div style={{ height: '1px', backgroundColor: theme.border, margin: '8px 12px' }} />
               <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span>
               </button>
-
             </div>
           </div>
         )}
@@ -659,7 +644,7 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station === '전체' ? '전체 (1~3호선)' : station} 통합 분석 현황</h2>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 통합 분석 현황</h2>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#EFF6FF', color: theme.primary, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>📍</span> 연동: {mappedLocation}
                   </div>
@@ -930,18 +915,18 @@ export default function Dashboard() {
           {/* ===================== [2. 연도별 비교 탭] ===================== */}
           {mainTab === 'compare' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station === '전체' ? '전체 (1~3호선)' : station} 연도별 전력 비교</h2>
-                  <p style={{ margin: 0, color: theme.textMuted }}>동일 개소의 과거와 현재 전력 사용량 및 요금을 월 단위 기간별로 정밀 분석합니다.</p>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 연도별 전력 비교</h2>
+                  <p style={{ margin: 0, color: theme.textMuted }}>동일 개소의 과거와 현재 전력 사용량 및 요금을 분석합니다.</p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
                   {isAdmin ? (
                     <>
                       <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
-                      <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 14px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                        📁 데이터셋 업로드
+                      <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
+                        📁 통합 데이터셋 업로드
                       </button>
                     </>
                   ) : (
@@ -952,68 +937,63 @@ export default function Dashboard() {
                     )
                   )}
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: theme.surface, padding: '6px 14px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.surface, padding: '6px 16px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기준연도</span>
-                      <input type="text" value={baseYear} onChange={(e) => setBaseYear(e.target.value)} style={{ width: '46px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
+                      <input type="text" value={baseYear} onChange={(e) => setBaseYear(e.target.value)} style={{ width: '48px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
                     </div>
                     <span style={{ color: theme.border }}>|</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>비교연도</span>
-                      <input type="text" value={compYear} onChange={(e) => setCompYear(e.target.value)} style={{ width: '46px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
+                      <input type="text" value={compYear} onChange={(e) => setCompYear(e.target.value)} style={{ width: '48px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
                     </div>
                     <span style={{ color: theme.border }}>|</span>
-                    {/* 🌟 월 단위 비교 기간 선택 UI */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>비교기간</span>
+                      <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
                       <select 
                         value={compStartMonth} 
                         onChange={(e) => {
-                          const val = e.target.value;
-                          setCompStartMonth(val);
-                          if (Number(val) > Number(compEndMonth)) setCompEndMonth(val);
+                          const v = e.target.value;
+                          setCompStartMonth(v);
+                          if (Number(v) > Number(compEndMonth)) setCompEndMonth(v);
                         }}
-                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px', color: theme.textMain }}
+                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px' }}
                       >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                          <option key={m} value={String(m)}>{m}월</option>
-                        ))}
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
                       </select>
-                      <span style={{ color: theme.textMuted, fontSize: '12px', fontWeight: 700 }}>~</span>
+                      <span>~</span>
                       <select 
                         value={compEndMonth} 
                         onChange={(e) => {
-                          const val = e.target.value;
-                          setCompEndMonth(val);
-                          if (Number(val) < Number(compStartMonth)) setCompStartMonth(val);
+                          const v = e.target.value;
+                          setCompEndMonth(v);
+                          if (Number(v) < Number(compStartMonth)) setCompStartMonth(v);
                         }}
-                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px', color: theme.textMain }}
+                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px' }}
                       >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                          <option key={m} value={String(m)}>{m}월</option>
-                        ))}
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
                       </select>
                     </div>
                     <span style={{ color: theme.border }}>|</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>단가(원)</span>
-                      <input type="text" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} style={{ width: '50px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
+                      <input type="text" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} style={{ width: '56px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
                     </div>
                   </div>
                   <button onClick={fetchCompareData} style={{ padding: '10px 20px', backgroundColor: theme.secondary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>비교 분석 실행</button>
-                  <button onClick={handleExportCompareExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', gap: '6px' }}>📊 다운로드</button>
+                  <button onClick={handleExportCompareExcel} style={{ padding: '10px 20px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', gap: '6px' }}>📊 다운로드</button>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
-                <StatCard title={`${compYear}년 (${currentPeriodLabel}) 사용량`} value={compLoading ? '...' : (compSummary.total_comp?.toLocaleString() || 0)} unit="kWh" subtitle={compLoading ? '...' : `${baseYear}년 동기간(기준): ${compSummary.total_base?.toLocaleString() || 0} kWh`} topColor={theme.secondary} />
-                <StatCard title={`기간 내 전력량 증감 (${currentPeriodLabel})`} value={compLoading ? '...' : `${compSummary.diff > 0 ? '+' : ''}${compSummary.diff?.toLocaleString() || 0}`} unit="kWh" subtitle={compLoading ? '...' : `기준연도 동기간 대비 ${compSummary.diff_pct > 0 ? '+' : ''}${compSummary.diff_pct || 0}%`} subtitleColor={compSummary.diff > 0 ? theme.danger : theme.success} topColor={compSummary.diff > 0 ? theme.danger : theme.success} />
-                <StatCard title={`예상 전기요금 증감액 (${currentPeriodLabel})`} value={compLoading ? '...' : `${compSummary.cost > 0 ? '+' : ''}${compSummary.cost?.toLocaleString() || 0}`} unit="원" subtitle={compLoading ? '...' : (compSummary.cost > 0 ? '요금 상승 추정' : '요금 절감 추정')} subtitleColor={compSummary.cost > 0 ? theme.danger : theme.success} topColor={compSummary.cost > 0 ? theme.danger : theme.success} />
+                <StatCard title={`${compYear}년 총 사용량`} value={compLoading ? '...' : (compSummary.total_comp?.toLocaleString() || 0)} unit="kWh" subtitle={compLoading ? '...' : `${baseYear}년(기준): ${compSummary.total_base?.toLocaleString() || 0} kWh`} topColor={theme.secondary} />
+                <StatCard title="전력량 증감" value={compLoading ? '...' : `${compSummary.diff > 0 ? '+' : ''}${compSummary.diff?.toLocaleString() || 0}`} unit="kWh" subtitle={compLoading ? '...' : `전년 대비 ${compSummary.diff_pct > 0 ? '+' : ''}${compSummary.diff_pct || 0}%`} subtitleColor={compSummary.diff > 0 ? theme.danger : theme.success} topColor={compSummary.diff > 0 ? theme.danger : theme.success} />
+                <StatCard title="예상 전기요금 증감액" value={compLoading ? '...' : `${compSummary.cost > 0 ? '+' : ''}${compSummary.cost?.toLocaleString() || 0}`} unit="원" subtitle={compLoading ? '...' : (compSummary.cost > 0 ? '요금 상승 추정' : '요금 절감 추정')} subtitleColor={compSummary.cost > 0 ? theme.danger : theme.success} topColor={compSummary.cost > 0 ? theme.danger : theme.success} />
               </div>
 
               <Card style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
-                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 전력 사용량 비교 ({baseYear}년 vs {compYear}년, {currentPeriodLabel})</h4>
+                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 전력 사용량 비교 ({baseYear}년 vs {compYear}년)</h4>
                   <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>(단위: MWh)</span>
                 </div>
                 <div style={{ height: '380px', width: '100%' }}>
@@ -1035,7 +1015,7 @@ export default function Dashboard() {
 
               <Card style={{ padding: '0', overflow: 'hidden', marginBottom: '32px' }}>
                 <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}` }}>
-                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 비교 상세 데이터 ({currentPeriodLabel})</h4>
+                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 비교 상세 데이터</h4>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '14px' }}>
@@ -1053,7 +1033,7 @@ export default function Dashboard() {
                       {compLoading ? (
                         <tr><td colSpan={6} style={{ padding: '60px', color: theme.secondary, fontWeight: 700, fontSize: '15px' }}>과거 데이터와 비교 연산을 수행하고 있습니다... ⏳</td></tr>
                       ) : compRecords.length === 0 ? (
-                        <tr><td colSpan={6} style={{ padding: '40px', color: theme.textMuted }}>개소 및 비교 기간을 선택 후 비교 분석을 실행해 주세요.</td></tr>
+                        <tr><td colSpan={6} style={{ padding: '40px', color: theme.textMuted }}>개소를 선택 후 비교 분석을 실행해 주세요.</td></tr>
                       ) : (
                         compRecords.map((row, idx) => (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
@@ -1073,7 +1053,7 @@ export default function Dashboard() {
 
               <Card style={{ padding: '0', overflow: 'hidden', border: `1px solid ${theme.primary}` }}>
                 <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}`, backgroundColor: '#F8FAFC' }}>
-                  <h4 style={{ margin: 0, color: theme.primary, fontSize: '1.1rem', fontWeight: 700 }}>💡 XGBoost 증감 요인 심층 분석 리포트 ({currentPeriodLabel})</h4>
+                  <h4 style={{ margin: 0, color: theme.primary, fontSize: '1.1rem', fontWeight: 700 }}>💡 XGBoost 증감 요인 심층 분석 리포트</h4>
                 </div>
                 <div style={{ padding: '24px', backgroundColor: '#FFFFFF' }}>
                   {compLoading ? (
@@ -1091,7 +1071,7 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station === '전체' ? '전체 (1~3호선)' : station} AI 전력 수요 예측</h2>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} AI 전력 수요 예측</h2>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(232, 62, 140, 0.1)', color: theme.ai, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 700 }}>
                     <span style={{ fontSize: '1rem' }}>🧠</span> XGBoost Regressor 기반 초정밀 예측 모델
                   </div>
