@@ -35,7 +35,6 @@ export default function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isDatasetReady, setIsDatasetReady] = useState(false);
   const [datasetDate, setDatasetDate] = useState('');
-  const [backupLoading, setBackupLoading] = useState(false);
 
   const checkDatasetStatus = async () => {
     try {
@@ -273,39 +272,9 @@ export default function Dashboard() {
     }
   };
 
-  // 🌟 마스터 누적 백업 다운로드 및 서버 데이터셋 자동 갱신 처리
-  const handleMasterBackup = async () => {
+  const handleMasterBackup = () => {
     if (!isDatasetReady) { alert("통합 데이터셋이 서버에 없습니다."); return; }
-    if (backupLoading) return;
-    
-    setBackupLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/backup`);
-      if (!res.ok) throw new Error("백업 실패");
-      
-      const blob = await res.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const ymd = getLocalISODate(yesterday).replace(/-/g, '');
-      link.setAttribute('download', `DTRO_Master_Backup_${ymd}.xlsx`);
-      
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-      
-      await checkDatasetStatus();
-      alert("✅ 마스터 누적 백업 다운로드 및 서버 데이터셋 자동 갱신이 완료되었습니다!\n(별도로 통합 데이터셋을 다시 업로드할 필요가 없습니다.)");
-    } catch (err) {
-      console.error(err);
-      alert("백업 및 자동 반영 중 오류가 발생했습니다.");
-    } finally {
-      setBackupLoading(false);
-    }
+    window.location.href = `${API_URL}/api/backup`;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -618,12 +587,8 @@ export default function Dashboard() {
         
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {isAdmin && (
-            <button 
-              onClick={handleMasterBackup} 
-              disabled={backupLoading}
-              style={{ padding: '8px 16px', backgroundColor: backupLoading ? '#64748B' : '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: backupLoading ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}
-            >
-              {backupLoading ? '⏳ 백업 및 서버 반영 중...' : '💾 마스터 누적 백업'}
+            <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
+              💾 마스터 누적 백업
             </button>
           )}
           <div style={{ color: '#94A3B8', fontSize: '12px', marginRight: '10px' }}>
@@ -717,6 +682,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* 🌟 1. 통합 대시보드: 누적 전력 사용량 및 최대 수요 전력 정수 반올림 표기 */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                 <StatCard title="누적 전력 사용량" value={loading ? '...' : Math.round(summary.total_usage || 0).toLocaleString()} unit="kWh" topColor={theme.primary} />
                 <StatCard title="최대 수요 전력 (Peak)" value={loading ? '...' : Math.round(summary.max_peak || 0).toLocaleString()} unit="kW" topColor={theme.danger} />
@@ -1019,6 +985,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* 🌟 2. 연도별 비교 탭: 총 사용량, 기준연도 사용량, 전력량 증감, 요금 증감액 정수 반올림 표기 */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                 <StatCard 
                   title={`${compYear}년 총 사용량`} 
@@ -1179,6 +1146,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* 🌟 3. AI 수요 예측 탭: 예상 연간 총 전력량 및 최대 수요(Peak) 정수 반올림 표기 */}
               {predSummary && !predLoading && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                   <StatCard 
