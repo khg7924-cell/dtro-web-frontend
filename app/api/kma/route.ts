@@ -8,12 +8,11 @@ export async function GET(req: NextRequest) {
   const type = searchParams.get('type') || 'asos';
 
   try {
-    // 1. 한국환경공단(에어코리아) 시도별 실시간 측정정보 (최근 3개월 시간별 데이터 -> 일평균 산출용)
+    // 1. [오늘 실시간용] 한국환경공단 시도별 실시간 측정정보 (대구 26개 측정소 1회 일괄 조회)
     if (type === 'air_sido') {
       const serviceKey = searchParams.get('serviceKey') || '';
-      const pageNo = searchParams.get('pageNo') || '1';
       const numOfRows = searchParams.get('numOfRows') || '100';
-      const airUrl = `http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty?serviceKey=${serviceKey}&returnType=json&numOfRows=${numOfRows}&pageNo=${pageNo}&sidoName=${encodeURIComponent('대구')}&ver=1.0`;
+      const airUrl = `http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty?serviceKey=${serviceKey}&returnType=json&numOfRows=${numOfRows}&pageNo=1&sidoName=${encodeURIComponent('대구')}&ver=1.0`;
       
       const res = await fetch(airUrl, { cache: 'no-store' });
       const text = await res.text();
@@ -23,15 +22,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 2. 한국환경공단(에어코리아) 측정소별 실시간 일평균/시간별 조회 (과거 누락일 백업 및 개별 측정소용)
-    if (type === 'air_station') {
+    // 🌟 2. [어제까지 일평균용] 한국환경공단 대기오염통계 현황 - 측정소별 실시간 일평균 정보 조회 (getMsrstnAcctoRDyrg)
+    if (type === 'air_daily') {
       const serviceKey = searchParams.get('serviceKey') || '';
       const stationName = searchParams.get('stationName') || '수창동';
-      const dataTerm = searchParams.get('dataTerm') || 'MONTH'; // DAILY, MONTH, 3MONTH
-      const numOfRows = searchParams.get('numOfRows') || '750';
-      const airUrl = `http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getMsrstnAcctoRltmMesureDnsty?serviceKey=${serviceKey}&returnType=json&numOfRows=${numOfRows}&pageNo=1&stationName=${encodeURIComponent(stationName)}&dataTerm=${dataTerm}&ver=1.3`;
+      const inqBginDt = searchParams.get('inqBginDt') || '';
+      const inqEndDt = searchParams.get('inqEndDt') || '';
+      const numOfRows = searchParams.get('numOfRows') || '100';
+      const statsUrl = `http://apis.data.go.kr/B552584/ArpltnStatsSvc/getMsrstnAcctoRDyrg?serviceKey=${serviceKey}&returnType=json&numOfRows=${numOfRows}&pageNo=1&inqBginDt=${inqBginDt}&inqEndDt=${inqEndDt}&msrstnName=${encodeURIComponent(stationName)}`;
 
-      const res = await fetch(airUrl, { cache: 'no-store' });
+      const res = await fetch(statsUrl, { cache: 'no-store' });
       const text = await res.text();
       return new NextResponse(text, {
         status: 200,
