@@ -305,7 +305,7 @@ export default function Dashboard() {
       setMappedLocation(result.mapped_location || '대구 전체');
       setSummary(result.summary || {});
 
-      // 🌟 기간이 1개월을 넘더라도 월 단위로 묶지 않고 항상 일별(MM-DD) 데이터로 표시
+      // 🌟 기간이 1개월을 넘더라도 월 단위로 묶지 않고 항상 일별(MM-DD) 데이터 유지
       setChartData(records.map((r: any) => ({ ...r, date: r.date.substring(5) })));
       setExpandedRows({});
     } catch (err) { console.error(err); } finally { setLoading(false); }
@@ -660,7 +660,8 @@ export default function Dashboard() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '32px' }}>
-                <Card>
+                {/* 🌟 좌측 카드: minWidth: 0 및 overflow: 'hidden'으로 카드 크기를 고정하고 카드 내부에만 가로 스크롤바 생성 */}
+                <Card style={{ minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     
@@ -672,20 +673,19 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  {/* 🌟 좌측 전력 그래프: 15일 초과 조회 시 가로 스크롤 활성화 */}
                   <div ref={chartBoxRef} style={{ height: '340px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
-                        <div style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px' }}>
-                          <div style={{ minWidth: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '100%' }}>
+                        <div style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+                          <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '320px' }}>
                             <ResponsiveContainer width="100%" height="100%">
-                              <ComposedChart data={chartData} margin={{ top: 10, right: 40, left: 5, bottom: 5 }}>
+                              <ComposedChart data={chartData} margin={{ top: 15, right: 40, left: 5, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                                 <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                                 <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
                                 <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                                 <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend verticalAlign="top" height={32} wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
                                 <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={24} />
                                 <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke={theme.danger} strokeWidth={3} dot={{ r: 4 }} />
                               </ComposedChart>
@@ -755,7 +755,8 @@ export default function Dashboard() {
                   </div>
                 </Card>
 
-                <Card style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* 🌟 우측 카드: minWidth: 0 및 overflow: 'hidden'으로 카드 크기를 고정하고 카드 내부에만 가로 스크롤바 생성 */}
+                <Card style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>기상 및 대기질 지표</h4>
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
@@ -764,38 +765,37 @@ export default function Dashboard() {
                       <button onClick={() => setWeatherTab('dust')} style={getTabStyle(weatherTab === 'dust')}>초미세먼지</button>
                     </div>
                   </div>
-                  {/* 🌟 우측 기상 및 대기질 그래프: 15일 초과 조회 시 가로 스크롤 활성화 */}
                   <div style={{ height: '340px', width: '100%', flex: 1 }}>
                     {loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
-                      <div style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '8px' }}>
-                        <div style={{ minWidth: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '100%' }}>
+                      <div style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+                        <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '320px' }}>
                           <ResponsiveContainer width="100%" height="100%">
                             {weatherTab === 'temp' ? (
-                              <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
+                              <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                                 <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                                 <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} domain={['auto', 'auto']} axisLine={false} tickLine={false} />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend verticalAlign="top" height={32} wrapperStyle={{ fontSize: '13px', fontWeight: 600 }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '30px' : '0px' }} iconType="circle" />
                                 <Line type="monotone" dataKey="temp_max" name="최고기온(℃)" stroke="#FF832B" strokeWidth={3} dot={{ r: 4 }} />
                                 <Line type="monotone" dataKey="temp_min" name="최저기온(℃)" stroke="#1192E8" strokeWidth={3} dot={{ r: 4 }} />
                               </LineChart>
                             ) : weatherTab === 'humidity' ? (
-                              <BarChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
+                              <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                                 <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                                 <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} domain={[0, 100]} axisLine={false} tickLine={false} />
                                 <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend verticalAlign="top" height={32} wrapperStyle={{ fontSize: '13px', fontWeight: 600 }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '30px' : '0px' }} iconType="circle" />
                                 <Bar dataKey="humidity" name="평균습도(%)" fill="#009D9A" radius={[6, 6, 0, 0]} barSize={24} />
                               </BarChart>
                             ) : (
-                              <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 5 }}>
+                              <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                                 <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                                 <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend verticalAlign="top" height={32} wrapperStyle={{ fontSize: '13px', fontWeight: 600 }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '30px' : '0px' }} iconType="circle" />
                                 <Line type="monotone" dataKey="pm25" name="초미세먼지(PM2.5)" stroke="#FA4D56" strokeWidth={3} dot={{ r: 4 }} />
                               </LineChart>
                             )}
