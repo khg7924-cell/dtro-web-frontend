@@ -682,20 +682,18 @@ export default function Dashboard() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '32px' }}>
-                {/* 🌟 좌측 카드: 버튼 위치 고정 + 왼쪽 빈 공간에 '현재 피크' 배지 표시 + 15일 초과 시 스크롤바 우측 끝 자동 시작 */}
+                {/* 🌟 좌측 카드: 제목 바로 밑에 '현재 피크' 배지 위치 + 버튼 위치 고정 + 15일 초과 시 스크롤바 우측 끝 자동 시작 */}
                 <Card style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '8px', minHeight: '38px' }}>
-                    <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      전력 사용량 및 최대수요전력 추이
-                    </h4>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      {/* 🌟 버튼은 우측 끝에 고정된 채로 왼쪽 빈 공간에만 '현재 피크' 배지 표시 */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'relative' }}>
+                    <div style={{ position: 'relative' }}>
+                      <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
+                      {/* 🌟 제목 바로 밑에 '현재 피크' 배지 고정 표시 */}
                       {chartMode === 'realtime' && !realtimeLoading && currentRealtimeMaxPeak > 0 && (
                         <div style={{
+                          position: 'absolute', top: '28px', left: 0, zIndex: 2,
                           display: 'inline-flex', alignItems: 'center', gap: '5px',
                           backgroundColor: '#FEF2F2', color: theme.danger, border: '1px solid #FECACA',
-                          padding: '5px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 800,
+                          padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 800,
                           boxShadow: '0 2px 4px rgba(218, 30, 40, 0.08)', whiteSpace: 'nowrap'
                         }}>
                           <span>🚨 현재 피크: {currentRealtimeMaxPeak.toLocaleString()} kW</span>
@@ -704,7 +702,10 @@ export default function Dashboard() {
                           )}
                         </div>
                       )}
-                      <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px', flexShrink: 0 }}>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
                         <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
                         <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
                       </div>
@@ -737,7 +738,7 @@ export default function Dashboard() {
 
                         return (
                           <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={realtimeData} margin={{ top: 15, right: 85, left: 5, bottom: 0 }}>
+                            <ComposedChart data={realtimeData} margin={{ top: 25, right: 85, left: 5, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                               <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
                               <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
@@ -790,7 +791,7 @@ export default function Dashboard() {
 
                 {/* 🌟 우측 카드: 카드 크기 고정 + 15일 초과 시 스크롤바가 자동으로 가장 오른쪽(최신 날짜)에서 시작 */}
                 <Card style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', minHeight: '38px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>기상 및 대기질 지표</h4>
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
                       <button onClick={() => setWeatherTab('temp')} style={getTabStyle(weatherTab === 'temp')}>기온</button>
