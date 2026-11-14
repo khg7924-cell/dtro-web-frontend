@@ -434,6 +434,9 @@ export default function Dashboard() {
   
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
+  // 🌟 금일 실시간 최대 피크 수치 및 발생 시각 추출 (상단 배지 및 차트 점 표시 공용)
+  const currentRealtimeMaxPeak = realtimeData.reduce((max, d) => (d.peak_kw !== null && d.peak_kw > max) ? d.peak_kw : max, -1);
+  const currentMaxPeakTime = realtimeData.find(d => d.peak_kw === currentRealtimeMaxPeak && d.peak_kw !== null)?.time;
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
@@ -679,12 +682,26 @@ export default function Dashboard() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '32px' }}>
-                {/* 🌟 좌측 카드: 카드 크기 고정 + 15일 초과 시 스크롤바가 자동으로 가장 오른쪽(최신 날짜)에서 시작 */}
+                {/* 🌟 좌측 카드: 1안(상단 피크 배지) + 15일 초과 시 스크롤바 우측 끝 자동 시작 */}
                 <Card style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
                     
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {/* 🌟 1안 적용: 금일 실시간 모드일 때 버튼 좌측에 피크 수치 및 발생 시각 배지 표시 */}
+                      {chartMode === 'realtime' && !realtimeLoading && currentRealtimeMaxPeak > 0 && (
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
+                          backgroundColor: '#FEF2F2', color: theme.danger, border: '1px solid #FECACA',
+                          padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 800,
+                          boxShadow: '0 2px 4px rgba(218, 30, 40, 0.08)', whiteSpace: 'nowrap'
+                        }}>
+                          <span>🚨 금일 피크: {currentRealtimeMaxPeak.toLocaleString()} kW</span>
+                          {currentMaxPeakTime && (
+                            <span style={{ color: '#991B1B', fontWeight: 600, fontSize: '11px' }}>({currentMaxPeakTime})</span>
+                          )}
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
                         <button onClick={() => setChartMode('daily')} style={getTabStyle(chartMode === 'daily')}>일별 추이</button>
                         <button onClick={() => { setChartMode('realtime'); fetchRealtimeData(); }} style={getTabStyle(chartMode === 'realtime')}>🔴 금일 실시간(15분)</button>
@@ -714,8 +731,6 @@ export default function Dashboard() {
                       )
                     ) : (
                       realtimeLoading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>실시간 15분 데이터 연동 중... ⏳</p> : (() => {
-                        const currentRealtimeMaxPeak = realtimeData.reduce((max, d) => (d.peak_kw !== null && d.peak_kw > max) ? d.peak_kw : max, -1);
-                        const currentMaxPeakTime = realtimeData.find(d => d.peak_kw === currentRealtimeMaxPeak && d.peak_kw !== null)?.time;
                         const isUnsaved = activeThreshold !== dbThreshold;
 
                         return (
@@ -738,9 +753,6 @@ export default function Dashboard() {
                                         <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite" />
                                       </circle>
                                       <circle cx={cx} cy={cy} r={4} fill="#FFF" />
-                                      <text x={cx + 12} y={cy - 12} textAnchor="start" fill="#DA1E28" fontSize="13px" fontWeight="800">
-                                        {payload.peak_kw.toLocaleString()} kW
-                                      </text>
                                     </g>
                                   );
                                 }
