@@ -103,6 +103,25 @@ export default function Dashboard() {
   const dragStartValueRef = useRef(0);
   const chartBoxRef = useRef<HTMLDivElement | null>(null);
 
+  // 🌟 좌측 전력 그래프 및 우측 기상 그래프 가로 스크롤 제어용 Ref
+  const powerScrollRef = useRef<HTMLDivElement | null>(null);
+  const weatherScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // 🌟 데이터 조회 완료 또는 탭 전환 시 가로 스크롤바를 가장 오른쪽 끝(최신 날짜)으로 자동 이동
+  useEffect(() => {
+    if (!loading && chartData.length > 15 && mainTab === 'dashboard') {
+      const timer = setTimeout(() => {
+        if (powerScrollRef.current) {
+          powerScrollRef.current.scrollLeft = powerScrollRef.current.scrollWidth;
+        }
+        if (weatherScrollRef.current) {
+          weatherScrollRef.current.scrollLeft = weatherScrollRef.current.scrollWidth;
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [chartData, loading, chartMode, weatherTab, mainTab]);
+
   const maxDate = getLocalISODate();
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 14);
@@ -660,7 +679,7 @@ export default function Dashboard() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '32px' }}>
-                {/* 🌟 좌측 카드: minWidth: 0 및 overflow: 'hidden'으로 카드 크기를 고정하고 카드 내부에만 가로 스크롤바 생성 */}
+                {/* 🌟 좌측 카드: 카드 크기 고정 + 15일 초과 시 스크롤바가 자동으로 가장 오른쪽(최신 날짜)에서 시작 */}
                 <Card style={{ minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
@@ -676,7 +695,7 @@ export default function Dashboard() {
                   <div ref={chartBoxRef} style={{ height: '340px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
                       loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
-                        <div style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+                        <div ref={powerScrollRef} style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
                           <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '320px' }}>
                             <ResponsiveContainer width="100%" height="100%">
                               <ComposedChart data={chartData} margin={{ top: 15, right: 40, left: 5, bottom: 0 }}>
@@ -685,7 +704,7 @@ export default function Dashboard() {
                                 <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
                                 <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                                 <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
                                 <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={24} />
                                 <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke={theme.danger} strokeWidth={3} dot={{ r: 4 }} />
                               </ComposedChart>
@@ -755,7 +774,7 @@ export default function Dashboard() {
                   </div>
                 </Card>
 
-                {/* 🌟 우측 카드: minWidth: 0 및 overflow: 'hidden'으로 카드 크기를 고정하고 카드 내부에만 가로 스크롤바 생성 */}
+                {/* 🌟 우측 카드: 카드 크기 고정 + 15일 초과 시 스크롤바가 자동으로 가장 오른쪽(최신 날짜)에서 시작 */}
                 <Card style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>기상 및 대기질 지표</h4>
@@ -767,7 +786,7 @@ export default function Dashboard() {
                   </div>
                   <div style={{ height: '340px', width: '100%', flex: 1 }}>
                     {loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
-                      <div style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+                      <div ref={weatherScrollRef} style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
                         <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '320px' }}>
                           <ResponsiveContainer width="100%" height="100%">
                             {weatherTab === 'temp' ? (
@@ -776,7 +795,7 @@ export default function Dashboard() {
                                 <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                                 <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} domain={['auto', 'auto']} axisLine={false} tickLine={false} />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '30px' : '0px' }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
                                 <Line type="monotone" dataKey="temp_max" name="최고기온(℃)" stroke="#FF832B" strokeWidth={3} dot={{ r: 4 }} />
                                 <Line type="monotone" dataKey="temp_min" name="최저기온(℃)" stroke="#1192E8" strokeWidth={3} dot={{ r: 4 }} />
                               </LineChart>
@@ -786,7 +805,7 @@ export default function Dashboard() {
                                 <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                                 <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} domain={[0, 100]} axisLine={false} tickLine={false} />
                                 <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '30px' : '0px' }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
                                 <Bar dataKey="humidity" name="평균습도(%)" fill="#009D9A" radius={[6, 6, 0, 0]} barSize={24} />
                               </BarChart>
                             ) : (
@@ -795,7 +814,7 @@ export default function Dashboard() {
                                 <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
                                 <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'left' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingLeft: chartData.length > 15 ? '30px' : '0px' }} iconType="circle" />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
                                 <Line type="monotone" dataKey="pm25" name="초미세먼지(PM2.5)" stroke="#FA4D56" strokeWidth={3} dot={{ r: 4 }} />
                               </LineChart>
                             )}
