@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [userId, setUserId] = useState(''); 
   const [password, setPassword] = useState('');
   const [department, setDepartment] = useState(''); 
+  const [userName, setUserName] = useState(''); 
 
   const formatEmail = (id: string) => `${id}@dtro.local`;
 
@@ -53,7 +54,7 @@ export default function LoginPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (userId.trim() === '' || password.trim() === '' || department.trim() === '') {
+    if (userId.trim() === '' || password.trim() === '' || department.trim() === '' || userName.trim() === '') {
       alert('모든 정보를 입력해 주세요.');
       return;
     }
@@ -78,6 +79,7 @@ export default function LoginPage() {
       await set(ref(db, 'users/' + user.uid), {
         empId: userId,
         department: department, 
+        name: userName,
         isApproved: false 
       });
 
@@ -85,6 +87,7 @@ export default function LoginPage() {
       
       alert('계정 등록 신청이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.');
       setDepartment(''); 
+      setUserName('');
       setPassword('');
       setIsLoginMode(true);
       
@@ -147,16 +150,29 @@ export default function LoginPage() {
           <form onSubmit={isLoginMode ? handleLogin : handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
             {!isLoginMode && (
-              <div>
-                <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>소속</label>
-                <input 
-                  type="text" 
-                  value={department} 
-                  onChange={(e) => setDepartment(e.target.value)} 
-                  placeholder="예 : 전기관리팀"
-                  style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
-                />
-              </div>
+              <>
+                <div>
+                  <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>소속</label>
+                  <input 
+                    type="text" 
+                    value={department} 
+                    onChange={(e) => setDepartment(e.target.value)} 
+                    placeholder="예 : 전기관리팀"
+                    style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>이름</label>
+                  <input 
+                    type="text" 
+                    value={userName} 
+                    onChange={(e) => setUserName(e.target.value)} 
+                    placeholder="이름 입력"
+                    style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </>
             )}
 
             <div>
