@@ -1470,9 +1470,9 @@ export default function Dashboard() {
             <div style={{ maxWidth: '1450px', margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>🚦 24개 전 개소 실시간 종합 관제 상황판</h2>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>🚦 실시간 종합 관제 상황판</h2>
                   <p style={{ margin: 0, color: theme.textMuted, fontSize: '0.95rem' }}>
-                    전 노선 수전설비의 금일 피크 도달률 및 전일 동시간대 대비 부하 증감 현황입니다. (카드 클릭 시 해당 역사 실시간 제어 화면으로 이동)
+                    금일 피크 도달률 및 전일 동시간대 대비 부하 증감 현황입니다. (카드 클릭 시 해당 역사 금일 실시간 화면으로 이동)
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
