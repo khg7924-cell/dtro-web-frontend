@@ -36,17 +36,6 @@ export default function Dashboard() {
   const [isDatasetReady, setIsDatasetReady] = useState(false);
   const [datasetDate, setDatasetDate] = useState('');
 
-  // 🌟 스마트폰(768px 이하) 화면 감지 및 모바일 개소 선택 드롭다운 상태
-  const [isMobile, setIsMobile] = useState(false);
-  const [mobileStationOpen, setMobileStationOpen] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const checkDatasetStatus = async () => {
     try {
       const res = await fetch(`${API_URL}/api/check_dataset`);
@@ -114,9 +103,11 @@ export default function Dashboard() {
   const dragStartValueRef = useRef(0);
   const chartBoxRef = useRef<HTMLDivElement | null>(null);
 
+  // 🌟 좌측 전력 그래프 및 우측 기상 그래프 가로 스크롤 제어용 Ref
   const powerScrollRef = useRef<HTMLDivElement | null>(null);
   const weatherScrollRef = useRef<HTMLDivElement | null>(null);
 
+  // 🌟 데이터 조회 완료 또는 탭 전환 시 가로 스크롤바를 가장 오른쪽 끝(최신 날짜)으로 자동 이동
   useEffect(() => {
     if (!loading && chartData.length > 15 && mainTab === 'dashboard') {
       const timer = setTimeout(() => {
@@ -164,6 +155,7 @@ export default function Dashboard() {
   const [billLoading, setBillLoading] = useState(false);
   const [billCustNo, setBillCustNo] = useState('');
 
+  // 🌟 [추가] 24개 전 개소 종합 관제 상황판 상태 변수
   const [overviewItems, setOverviewItems] = useState<any[]>([]);
   const [overviewCounts, setOverviewCounts] = useState<any>({ danger: 0, warning: 0, normal: 0 });
   const [overviewUpdatedAt, setOverviewUpdatedAt] = useState('');
@@ -194,8 +186,10 @@ export default function Dashboard() {
     const [sh, sm] = start.split(':').map(Number);
     let [eh, em] = end.split(':').map(Number);
     if (end === "24:00") { eh = 24; em = 0; }
+    
     let diffMins = (eh * 60 + em) - (sh * 60 + sm);
     if (diffMins <= 0) diffMins += 24 * 60; 
+    
     return parseFloat((diffMins / 60).toFixed(1));
   };
   const formCalculatedHours = calculateHours(formStartTime, formEndTime);
@@ -354,6 +348,7 @@ export default function Dashboard() {
     } catch (err) { console.error(err); } finally { setRealtimeLoading(false); }
   };
 
+  // 🌟 [추가] 24개 전 개소 종합 관제 데이터 호출 함수
   const fetchOverviewData = async (bypass = false) => {
     setOverviewLoading(true);
     try {
@@ -451,19 +446,13 @@ export default function Dashboard() {
   const currentRows = rawRecords.slice(indexOfFirstRow, indexOfLastRow);
   const totalPages = Math.ceil(rawRecords.length / rowsPerPage) || 1;
 
-  const Card = ({ children, style = {} }: any) => (
-    <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: isMobile ? '16px' : '24px', boxShadow: theme.shadow, border: `1px solid ${theme.border}`, ...style }}>
-      {children}
-    </div>
-  );
+  const Card = ({ children, style = {} }: any) => ( <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '24px', boxShadow: theme.shadow, border: `1px solid ${theme.border}`, ...style }}>{children}</div> );
 
   const StatCard = ({ title, value, unit, subtitle, subtitleColor = theme.textMuted, topColor }: any) => (
-    <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: isMobile ? '16px 18px' : '24px', boxShadow: theme.shadow, border: `1px solid ${theme.border}`, borderTop: `4px solid ${topColor}`, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-      <p style={{ color: theme.textMuted, margin: 0, fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>{title}</p>
-      <h3 style={{ color: theme.textMain, margin: isMobile ? '8px 0 4px 0' : '12px 0 8px 0', fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 800, letterSpacing: '-1px' }}>
-        {value} <span style={{ fontSize: isMobile ? '0.9rem' : '1rem', color: theme.textMuted, fontWeight: 500 }}>{unit}</span>
-      </h3>
-      {subtitle && <p style={{ color: subtitleColor, margin: 0, fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 500 }}>{subtitle}</p>}
+    <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '24px', boxShadow: theme.shadow, border: `1px solid ${theme.border}`, borderTop: `4px solid ${topColor}`, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>{title}</p>
+      <h3 style={{ color: theme.textMain, margin: '12px 0 8px 0', fontSize: '2rem', fontWeight: 800, letterSpacing: '-1px' }}>{value} <span style={{ fontSize: '1rem', color: theme.textMuted, fontWeight: 500 }}>{unit}</span></h3>
+      {subtitle && <p style={{ color: subtitleColor, margin: 0, fontSize: '0.85rem', fontWeight: 500 }}>{subtitle}</p>}
     </div>
   );
 
@@ -476,20 +465,14 @@ export default function Dashboard() {
     };
   };
 
-  const getTabStyle = (isActive: boolean) => ({
-    padding: isMobile ? '6px 12px' : '8px 16px',
-    backgroundColor: isActive ? theme.primary : '#F1F5F9',
-    color: isActive ? 'white' : theme.textMuted,
-    border: 'none', borderRadius: '24px', cursor: 'pointer',
-    fontWeight: isActive ? 700 : 600, fontSize: isMobile ? '12px' : '13px',
-    transition: 'all 0.2s ease', whiteSpace: 'nowrap' as const
-  });
+  const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
 
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
   
   const currentMaxPeakRealtime = Math.max(...realtimeData.map(d => d.peak_kw || 0), 0);
   const rightYAxisMax = Math.round(Math.max(currentMaxPeakRealtime * 1.3, activeThreshold > 0 ? activeThreshold * 1.1 : 0)) || 100;
+  // 🌟 현재 피크 수치 및 발생 시각 추출
   const currentRealtimeMaxPeak = realtimeData.reduce((max, d) => (d.peak_kw !== null && d.peak_kw > max) ? d.peak_kw : max, -1);
   const currentMaxPeakTime = realtimeData.find(d => d.peak_kw === currentRealtimeMaxPeak && d.peak_kw !== null)?.time;
 
@@ -497,9 +480,12 @@ export default function Dashboard() {
     if (!isDraggingRef.current || !chartBoxRef.current) return;
     const rect = chartBoxRef.current.getBoundingClientRect();
     const plotHeight = (rect.bottom - 30) - (rect.top + 15);
+    
     if (plotHeight <= 0) return;
+    
     const deltaY = dragStartYRef.current - e.clientY;
     const deltaValue = (deltaY / plotHeight) * rightYAxisMax;
+    
     const calculatedVal = Math.round(dragStartValueRef.current + deltaValue);
     setActiveThreshold(Math.max(0, calculatedVal));
   };
@@ -516,8 +502,31 @@ export default function Dashboard() {
 
     if (!isAdmin) {
       return (
-        <foreignObject x={rightEdge + 35} y={yPos - 15} width={90} height={30} style={{ overflow: 'visible' }}>
-          <div style={{ backgroundColor: theme.danger, color: '#FFF', border: '2px solid #FFF', borderRadius: '8px', padding: '4px 8px', fontSize: '11px', fontWeight: 800, boxShadow: '0 2px 6px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap', height: '100%', margin: 0 }}>
+        <foreignObject 
+          x={rightEdge + 35} 
+          y={yPos - 15} 
+          width={90} 
+          height={30} 
+          style={{ overflow: 'visible' }}
+        >
+          <div 
+            style={{ 
+              backgroundColor: theme.danger,
+              color: '#FFF',
+              border: '2px solid #FFF',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              fontSize: '11px',
+              fontWeight: 800,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              whiteSpace: 'nowrap',
+              height: '100%',
+              margin: 0
+            }}
+          >
             🚨 {activeThreshold} kW
           </div>
         </foreignObject>
@@ -525,18 +534,60 @@ export default function Dashboard() {
     }
 
     return (
-      <foreignObject x={rightEdge + 35} y={yPos - 35} width={90} height={70} style={{ overflow: 'visible' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'transparent', height: '100%', width: '100%' }}>
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => p + 1); }} style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px' }} title="1kW 올리기">▲</button>
+      <foreignObject 
+        x={rightEdge + 35} 
+        y={yPos - 35} 
+        width={90} 
+        height={70} 
+        style={{ overflow: 'visible' }}
+      >
+        <div 
+          style={{ 
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'transparent', height: '100%', width: '100%'
+          }}
+        >
           <button 
-            onMouseDown={(e) => { e.stopPropagation(); isDraggingRef.current = true; dragStartYRef.current = e.clientY; dragStartValueRef.current = activeThreshold; }}
+            onMouseDown={(e) => e.stopPropagation()} 
+            onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => p + 1); }} 
+            style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px' }}
+            title="1kW 올리기"
+          >▲</button>
+          
+          <button 
+            onMouseDown={(e) => { 
+              e.stopPropagation(); 
+              isDraggingRef.current = true; 
+              dragStartYRef.current = e.clientY;
+              dragStartValueRef.current = activeThreshold;
+            }}
             onClick={(e) => { e.stopPropagation(); handleSaveThreshold(); }} 
-            style={{ backgroundColor: isUnsaved ? '#FF832B' : theme.danger, color: '#FFF', border: '2px solid #FFF', borderRadius: '8px', padding: '4px 8px', fontSize: '11px', fontWeight: 800, boxShadow: '0 2px 6px rgba(0,0,0,0.2)', cursor: 'pointer', whiteSpace: 'nowrap', margin: '0', width: '100%', transition: 'background-color 0.2s' }} 
+            style={{ 
+              backgroundColor: isUnsaved ? '#FF832B' : theme.danger,
+              color: '#FFF',
+              border: '2px solid #FFF',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              fontSize: '11px',
+              fontWeight: 800,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              cursor: 'pointer', 
+              whiteSpace: 'nowrap',
+              margin: '0',
+              width: '100%',
+              transition: 'background-color 0.2s'
+            }} 
             title="드래그하여 이동 / 클릭하여 저장"
           >
             🚨 {activeThreshold} kW {isUnsaved ? '💾' : '✔'}
           </button>
-          <button onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => Math.max(0, p - 1)); }} style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px' }} title="1kW 내리기">▼</button>
+
+          <button 
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setActiveThreshold(p => Math.max(0, p - 1)); }} 
+            style={{ background: 'transparent', border: 'none', color: isUnsaved ? '#FF832B' : theme.danger, cursor: 'pointer', fontWeight: 900, fontSize: '14px', padding: '2px' }}
+            title="1kW 내리기"
+          >▼</button>
         </div>
       </foreignObject>
     );
@@ -547,178 +598,113 @@ export default function Dashboard() {
       onMouseMove={handleMouseMove} 
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      style={{ 
-        display: 'flex', flexDirection: 'column', 
-        height: isMobile ? 'auto' : '100vh', 
-        minHeight: '100vh',
-        width: '100%',
-        maxWidth: isMobile ? '100vw' : 'none',
-        overflowX: isMobile ? 'hidden' : 'visible',
-        fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', 
-        backgroundColor: theme.bg 
-      }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}
     >
-      {/* ===================== 상단 네비게이션 헤더 ===================== */}
-      <div style={{ 
-        backgroundColor: '#0F172A', color: 'white', 
-        display: 'flex', flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', 
-        padding: isMobile ? '12px 14px' : '16px 32px', 
-        gap: isMobile ? '10px' : '0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.1)' 
-      }}>
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? '10px' : '40px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ margin: 0, fontSize: isMobile ? '1.05rem' : '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
-              DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>스마트 에너지 관리 시스템</span>
-            </h1>
-            {isMobile && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {isAdmin && (
-                  <button onClick={handleMasterBackup} style={{ padding: '5px 8px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '11px' }}>
-                    💾 백업
-                  </button>
-                )}
-                <button onClick={() => router.push('/')} style={{ padding: '5px 8px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '11px' }}>
-                  로그아웃
-                </button>
-              </div>
-            )}
-          </div>
+      <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
+          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
+            DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>스마트 에너지 관리 시스템</span>
+          </h1>
 
-          <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', overflowX: isMobile ? 'auto' : 'visible', paddingBottom: isMobile ? '2px' : '0' }}>
-            <button onClick={() => { setMainTab('overview'); fetchOverviewData(false); }} style={{ padding: isMobile ? '7px 11px' : '8px 16px', backgroundColor: mainTab === 'overview' ? 'rgba(16, 185, 129, 0.2)' : 'transparent', color: mainTab === 'overview' ? '#10B981' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? '12.5px' : '14px', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0 }}>🚦 종합 관제</button>
-            <button onClick={() => setMainTab('dashboard')} style={{ padding: isMobile ? '7px 11px' : '8px 16px', backgroundColor: mainTab === 'dashboard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'dashboard' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '12.5px' : '14px', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0 }}>⚡ 통합 대시보드</button>
-            <button onClick={() => setMainTab('compare')} style={{ padding: isMobile ? '7px 11px' : '8px 16px', backgroundColor: mainTab === 'compare' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'compare' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '12.5px' : '14px', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0 }}>📊 연도별 비교</button>
-            <button onClick={() => setMainTab('predict')} style={{ padding: isMobile ? '7px 11px' : '8px 16px', backgroundColor: mainTab === 'predict' ? 'rgba(232, 62, 140, 0.15)' : 'transparent', color: mainTab === 'predict' ? theme.ai : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '12.5px' : '14px', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0 }}>🤖 AI 수요 예측</button>
-            <button onClick={() => setMainTab('bill')} style={{ padding: isMobile ? '7px 11px' : '8px 16px', backgroundColor: mainTab === 'bill' ? 'rgba(25, 128, 56, 0.15)' : 'transparent', color: mainTab === 'bill' ? theme.success : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '12.5px' : '14px', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0 }}>🧾 전기요금</button>
-            <button onClick={() => setMainTab('report')} style={{ padding: isMobile ? '7px 11px' : '8px 16px', backgroundColor: mainTab === 'report' ? 'rgba(218, 30, 40, 0.15)' : 'transparent', color: mainTab === 'report' ? theme.danger : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '12.5px' : '14px', transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0 }}>📝 부하증감 신고</button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => { setMainTab('overview'); fetchOverviewData(false); }} style={{ padding: '8px 16px', backgroundColor: mainTab === 'overview' ? 'rgba(16, 185, 129, 0.2)' : 'transparent', color: mainTab === 'overview' ? '#10B981' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🚦 종합 관제</button>
+            <button onClick={() => setMainTab('dashboard')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'dashboard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'dashboard' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>⚡ 통합 대시보드</button>
+            <button onClick={() => setMainTab('compare')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'compare' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'compare' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>📊 연도별 비교</button>
+            <button onClick={() => setMainTab('predict')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'predict' ? 'rgba(232, 62, 140, 0.15)' : 'transparent', color: mainTab === 'predict' ? theme.ai : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🤖 AI 수요 예측</button>
+            <button onClick={() => setMainTab('bill')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'bill' ? 'rgba(25, 128, 56, 0.15)' : 'transparent', color: mainTab === 'bill' ? theme.success : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🧾 전기요금</button>
+            <button onClick={() => setMainTab('report')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'report' ? 'rgba(218, 30, 40, 0.15)' : 'transparent', color: mainTab === 'report' ? theme.danger : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>📝 부하증감 신고</button>
           </div>
         </div>
         
-        {!isMobile && (
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            {isAdmin && (
-              <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
-                💾 마스터 누적 백업
-              </button>
-            )}
-            <div style={{ color: '#94A3B8', fontSize: '12px', marginRight: '10px' }}>
-              ID: {userId} {isAdmin ? '(관리자)' : '(일반)'}
-            </div>
-            <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {isAdmin && (
+            <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
+              💾 마스터 누적 백업
+            </button>
+          )}
+          <div style={{ color: '#94A3B8', fontSize: '12px', marginRight: '10px' }}>
+            ID: {userId} {isAdmin ? '(관리자)' : '(일반)'}
           </div>
-        )}
+          <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
+        </div>
       </div>
 
-      {/* ===================== 메인 바디 영역 ===================== */}
-      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: isMobile ? 'visible' : 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* 좌측 사이드바 (모바일에서는 상단 접이식 선택 바) */}
         {mainTab !== 'report' && mainTab !== 'overview' && (
-          <div style={{ 
-            width: isMobile ? '100%' : '280px', 
-            backgroundColor: theme.surface, 
-            borderRight: isMobile ? 'none' : `1px solid ${theme.border}`, 
-            borderBottom: isMobile ? `1px solid ${theme.border}` : 'none',
-            padding: isMobile ? '10px 14px' : '24px 16px', 
-            display: 'flex', flexDirection: 'column', 
-            overflowY: 'auto',
-            boxSizing: 'border-box'
-          }}>
-            {isMobile ? (
-              <div 
-                onClick={() => setMobileStationOpen(!mobileStationOpen)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 2px', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 700 }}>대상 개소:</span>
-                  <span style={{ fontSize: '13.5px', color: theme.primary, fontWeight: 800 }}>{station}</span>
+          <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <button onClick={() => { toggleMenu('전체'); setStation('전체'); }} style={getBtnStyle('전체')}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체</span>
+                <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus['전체'] ? '▼' : '▶'}</span>
+              </button>
+              {openMenus['전체'] && (
+                <div style={{ paddingLeft: '6px', marginTop: '4px', borderLeft: `2px solid ${theme.border}`, marginLeft: '16px', marginBottom: '8px' }}>
+                  {['1호선', '2호선', '3호선'].map((line) => {
+                    const isBillLine1 = mainTab === 'bill' && line === '1호선';
+                    const subStations = isBillLine1 ? [] : stationsData[line];
+                    const hasSubs = subStations.length > 0;
+                    
+                    return (
+                      <div key={line}>
+                        <button onClick={() => { if (hasSubs) toggleMenu(line); setStation(line); }} style={getBtnStyle(line)}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🚆 {line}</span>
+                          {hasSubs && <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus[line] ? '▼' : '▶'}</span>}
+                        </button>
+                        {hasSubs && openMenus[line] && subStations.map((sub) => (
+                          <button key={sub} onClick={() => setStation(sub)} style={getBtnStyle(sub, true)}>• {sub}</button>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
-                <span style={{ fontSize: '12px', color: theme.primary, fontWeight: 700, backgroundColor: theme.primarySoft, padding: '4px 10px', borderRadius: '12px' }}>
-                  {mobileStationOpen ? '닫기 ▲' : '개소 변경 ▼'}
-                </span>
-              </div>
-            ) : (
-              <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
-            )}
-
-            {(!isMobile || mobileStationOpen) && (
-              <div style={{ display: 'flex', flexDirection: 'column', marginTop: isMobile ? '10px' : '0', maxHeight: isMobile ? '260px' : 'none', overflowY: isMobile ? 'auto' : 'visible' }}>
-                <button onClick={() => { toggleMenu('전체'); setStation('전체'); if (isMobile) setMobileStationOpen(false); }} style={getBtnStyle('전체')}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체</span>
-                  <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus['전체'] ? '▼' : '▶'}</span>
-                </button>
-                {openMenus['전체'] && (
-                  <div style={{ paddingLeft: '6px', marginTop: '4px', borderLeft: `2px solid ${theme.border}`, marginLeft: '16px', marginBottom: '8px' }}>
-                    {['1호선', '2호선', '3호선'].map((line) => {
-                      const isBillLine1 = mainTab === 'bill' && line === '1호선';
-                      const subStations = isBillLine1 ? [] : stationsData[line];
-                      const hasSubs = subStations.length > 0;
-                      
-                      return (
-                        <div key={line}>
-                          <button onClick={() => { if (hasSubs) toggleMenu(line); setStation(line); }} style={getBtnStyle(line)}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🚆 {line}</span>
-                            {hasSubs && <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus[line] ? '▼' : '▶'}</span>}
-                          </button>
-                          {hasSubs && openMenus[line] && subStations.map((sub) => (
-                            <button key={sub} onClick={() => { setStation(sub); if (isMobile) setMobileStationOpen(false); }} style={getBtnStyle(sub, true)}>• {sub}</button>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <button onClick={() => { setStation('종합청사'); if (isMobile) setMobileStationOpen(false); }} style={getBtnStyle('종합청사')}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span>
-                </button>
-              </div>
-            )}
+              )}
+              <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* 우측 본문 컨텐츠 영역 */}
-        <div style={{ flex: 1, padding: isMobile ? '16px 14px 36px 14px' : '32px 40px', overflowY: isMobile ? 'visible' : 'auto', boxSizing: 'border-box' }}>
+        <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
           
           {/* ===================== [1. 통합 대시보드 탭] ===================== */}
           {mainTab === 'dashboard' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: isMobile ? '14px' : '0', marginBottom: isMobile ? '20px' : '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>{station} 통합 분석 현황</h2>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#EFF6FF', color: theme.primary, padding: '4px 12px', borderRadius: '16px', fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 600 }}>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 통합 분석 현황</h2>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#EFF6FF', color: theme.primary, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>📍</span> 연동: {mappedLocation}
                   </div>
                 </div>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'stretch' : 'flex-end', gap: '8px' }}>
-                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? '8px' : '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '8px', backgroundColor: theme.surface, padding: isMobile ? '8px 12px' : '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
                       <input type="date" min="2026-09-05" max={maxDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                       <span style={{ color: theme.border }}>|</span>
                       <input type="date" min="2026-09-05" max={maxDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ border: 'none', outline: 'none', color: theme.textMain, fontSize: '13px', fontWeight: 500, backgroundColor: 'transparent' }} />
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => { fetchDashboardData(false); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ flex: isMobile ? 1 : 'none', padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13.5px' }}>데이터 조회</button>
-                      <button onClick={handleExportExcel} style={{ flex: isMobile ? 1 : 'none', padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13.5px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>📊 다운로드</button>
-                    </div>
+                    <button onClick={() => { fetchDashboardData(false); if (chartMode === 'realtime') fetchRealtimeData(); }} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>데이터 조회</button>
+                    <button onClick={handleExportExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 다운로드</button>
                   </div>
                   
-                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', width: '100%', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '6px' : '0', marginTop: '2px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginTop: '4px' }}>
                     <div style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600, paddingLeft: '4px' }}>
                       ※ 2026년 9월 5일(한국전력 연동 승인일)부터 조회 가능.
                     </div>
                     
                     {isAdmin && cachedAt && (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: isMobile ? '100%' : 'auto', gap: '10px', backgroundColor: isCachedData ? '#F1F5F9' : '#ECFDF5', padding: '6px 10px', borderRadius: '8px', boxSizing: 'border-box' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: isCachedData ? '#F1F5F9' : '#ECFDF5', padding: '4px 10px', borderRadius: '8px' }}>
                         <span style={{ fontSize: '11px', color: isCachedData ? theme.textMuted : theme.success, fontWeight: 700 }}>
-                          ⏱ 기준: {cachedAt} ({isCachedData ? '캐시됨' : '최신'})
+                          ⏱ 데이터 기준: {cachedAt} ({isCachedData ? '캐시됨' : '방금 갱신됨'})
                         </span>
                         <button 
                           onClick={() => { fetchDashboardData(true); if (chartMode === 'realtime') fetchRealtimeData(); }} 
-                          style={{ padding: '4px 8px', backgroundColor: '#FEF2F2', color: theme.danger, border: `1px solid #FECACA`, borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ padding: '4px 8px', backgroundColor: '#FEF2F2', color: theme.danger, border: `1px solid #FECACA`, borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>
                           🔄 강제 갱신
                         </button>
                       </div>
@@ -727,21 +713,23 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '12px' : '24px', marginBottom: isMobile ? '20px' : '32px' }}>
+              {/* 🌟 1. 통합 대시보드: 누적 전력 사용량 및 최대 수요 전력 정수 반올림 표기 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                 <StatCard title="누적 전력 사용량" value={loading ? '...' : Math.round(summary.total_usage || 0).toLocaleString()} unit="kWh" topColor={theme.primary} />
                 <StatCard title="최대 수요 전력 (Peak)" value={loading ? '...' : Math.round(summary.max_peak || 0).toLocaleString()} unit="kW" topColor={theme.danger} />
                 <StatCard title="총 예상 탄소배출량" value={loading ? '...' : (summary.total_co2?.toLocaleString() || 0)} unit="tCO2" topColor={theme.success} />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: isMobile ? '16px' : '24px', marginBottom: isMobile ? '20px' : '32px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '32px' }}>
+                {/* 🌟 좌측 카드: 제목 바로 밑에 '현재 피크' 배지 위치 + 버튼 위치 고정 + 15일 초과 시 스크롤바 우측 끝 자동 시작 */}
                 <Card style={{ minWidth: 0, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '10px' : '0', marginBottom: isMobile ? '16px' : '24px', position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', position: 'relative' }}>
                     <div style={{ position: 'relative' }}>
-                      <h4 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
+                      <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>전력 사용량 및 최대수요전력 추이</h4>
+                      {/* 🌟 제목 바로 밑에 '현재 피크' 배지 고정 표시 */}
                       {chartMode === 'realtime' && !realtimeLoading && currentRealtimeMaxPeak > 0 && (
                         <div style={{
-                          position: isMobile ? 'static' : 'absolute', top: '28px', left: 0, zIndex: 2,
-                          marginTop: isMobile ? '6px' : 0,
+                          position: 'absolute', top: '28px', left: 0, zIndex: 2,
                           display: 'inline-flex', alignItems: 'center', gap: '5px',
                           backgroundColor: '#FEF2F2', color: theme.danger, border: '1px solid #FECACA',
                           padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 800,
@@ -763,38 +751,40 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  <div ref={chartBoxRef} style={{ height: isMobile ? '260px' : '340px', width: '100%', position: 'relative' }}>
+                  <div ref={chartBoxRef} style={{ height: '340px', width: '100%', position: 'relative' }}>
                     {chartMode === 'daily' ? (
-                      loading ? <p style={{ textAlign: 'center', paddingTop: '100px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
+                      loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                         <div ref={powerScrollRef} style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
-                          <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: isMobile ? '245px' : '320px' }}>
+                          <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '320px' }}>
                             <ResponsiveContainer width="100%" height="100%">
-                              <ComposedChart data={chartData} margin={{ top: 15, right: isMobile ? 10 : 40, left: -10, bottom: 0 }}>
+                              <ComposedChart data={chartData} margin={{ top: 15, right: 40, left: 5, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} />
-                                <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
-                                <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
+                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                                <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
+                                <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getRightYAxisDomain]} />
                                 <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: theme.textMuted, paddingTop: '14px' }} iconType="circle" />
-                                <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={22} />
-                                <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke={theme.danger} strokeWidth={3} dot={{ r: 3.5 }} />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
+                                <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill={theme.primary} radius={[6, 6, 0, 0]} barSize={24} />
+                                <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke={theme.danger} strokeWidth={3} dot={{ r: 4 }} />
                               </ComposedChart>
                             </ResponsiveContainer>
                           </div>
                         </div>
                       )
                     ) : (
-                      realtimeLoading ? <p style={{ textAlign: 'center', paddingTop: '100px', color: theme.primary, fontWeight: 700 }}>실시간 15분 데이터 연동 중... ⏳</p> : (() => {
+                      realtimeLoading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>실시간 15분 데이터 연동 중... ⏳</p> : (() => {
                         const isUnsaved = activeThreshold !== dbThreshold;
+
                         return (
                           <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={realtimeData} margin={{ top: 20, right: isMobile ? 20 : 85, left: -10, bottom: 0 }}>
+                            <ComposedChart data={realtimeData} margin={{ top: 25, right: 85, left: 5, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
                               <XAxis dataKey="time" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} minTickGap={20} />
-                              <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
-                              <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, rightYAxisMax]} />
+                              <YAxis yAxisId="left" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, getLeftYAxisDomain]} />
+                              <YAxis yAxisId="right" orientation="right" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} domain={[0, rightYAxisMax]} />
                               <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                              <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: theme.textMuted, paddingTop: '14px' }} iconType="circle" />
+                              <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
+                              
                               <Bar yAxisId="left" dataKey="usage_kwh" name="사용량(kWh)" fill="#8A3FFC" radius={[4, 4, 0, 0]} barSize={4} isAnimationActive={false} />
                               <Line yAxisId="right" type="monotone" dataKey="peak_kw" name="최대수요(kW)" stroke="#FA4D56" strokeWidth={2} isAnimationActive={false} dot={(props: any) => {
                                 const { cx, cy, payload } = props;
@@ -810,6 +800,7 @@ export default function Dashboard() {
                                 }
                                 return null;
                               }} />
+                              
                               {(isAdmin || activeThreshold > 0) && (
                                 <ReferenceLine 
                                   y={activeThreshold} 
@@ -826,7 +817,7 @@ export default function Dashboard() {
                                       dragStartValueRef.current = activeThreshold;
                                     }
                                   }}
-                                  label={!isMobile ? <CustomThresholdLabel /> : undefined}
+                                  label={<CustomThresholdLabel />}
                                 />
                               )}
                             </ComposedChart>
@@ -837,47 +828,48 @@ export default function Dashboard() {
                   </div>
                 </Card>
 
+                {/* 🌟 우측 카드: 카드 크기 고정 + 15일 초과 시 스크롤바가 자동으로 가장 오른쪽(최신 날짜)에서 시작 */}
                 <Card style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: isMobile ? '10px' : '0', marginBottom: isMobile ? '16px' : '24px' }}>
-                    <h4 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>기상 및 대기질 지표</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>기상 및 대기질 지표</h4>
                     <div style={{ display: 'flex', gap: '6px', backgroundColor: '#F1F5F9', padding: '4px', borderRadius: '24px' }}>
                       <button onClick={() => setWeatherTab('temp')} style={getTabStyle(weatherTab === 'temp')}>기온</button>
                       <button onClick={() => setWeatherTab('humidity')} style={getTabStyle(weatherTab === 'humidity')}>습도</button>
                       <button onClick={() => setWeatherTab('dust')} style={getTabStyle(weatherTab === 'dust')}>초미세먼지</button>
                     </div>
                   </div>
-                  <div style={{ height: isMobile ? '260px' : '340px', width: '100%', flex: 1 }}>
-                    {loading ? <p style={{ textAlign: 'center', paddingTop: '100px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
+                  <div style={{ height: '340px', width: '100%', flex: 1 }}>
+                    {loading ? <p style={{ textAlign: 'center', paddingTop: '120px', color: theme.primary, fontWeight: 700 }}>데이터를 불러오는 중입니다... ⏳</p> : (
                       <div ref={weatherScrollRef} style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
-                        <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: isMobile ? '245px' : '320px' }}>
+                        <div style={{ width: chartData.length > 15 ? `${chartData.length * 48}px` : '100%', height: '320px' }}>
                           <ResponsiveContainer width="100%" height="100%">
                             {weatherTab === 'temp' ? (
                               <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} />
-                                <YAxis tick={{ fill: theme.textMuted, fontSize: 11 }} domain={['auto', 'auto']} axisLine={false} tickLine={false} />
+                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                                <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} domain={['auto', 'auto']} axisLine={false} tickLine={false} />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '14px' }} iconType="circle" />
-                                <Line type="monotone" dataKey="temp_max" name="최고기온(℃)" stroke="#FF832B" strokeWidth={3} dot={{ r: 3.5 }} />
-                                <Line type="monotone" dataKey="temp_min" name="최저기온(℃)" stroke="#1192E8" strokeWidth={3} dot={{ r: 3.5 }} />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
+                                <Line type="monotone" dataKey="temp_max" name="최고기온(℃)" stroke="#FF832B" strokeWidth={3} dot={{ r: 4 }} />
+                                <Line type="monotone" dataKey="temp_min" name="최저기온(℃)" stroke="#1192E8" strokeWidth={3} dot={{ r: 4 }} />
                               </LineChart>
                             ) : weatherTab === 'humidity' ? (
                               <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} />
-                                <YAxis tick={{ fill: theme.textMuted, fontSize: 11 }} domain={[0, 100]} axisLine={false} tickLine={false} />
+                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                                <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} domain={[0, 100]} axisLine={false} tickLine={false} />
                                 <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '14px' }} iconType="circle" />
-                                <Bar dataKey="humidity" name="평균습도(%)" fill="#009D9A" radius={[6, 6, 0, 0]} barSize={22} />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
+                                <Bar dataKey="humidity" name="평균습도(%)" fill="#009D9A" radius={[6, 6, 0, 0]} barSize={24} />
                               </BarChart>
                             ) : (
                               <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} dy={10} />
-                                <YAxis tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                                <XAxis dataKey="date" interval={0} tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                                <YAxis tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
                                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow }} />
-                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '12px', fontWeight: 600, paddingTop: '14px' }} iconType="circle" />
-                                <Line type="monotone" dataKey="pm25" name="초미세먼지(PM2.5)" stroke="#FA4D56" strokeWidth={3} dot={{ r: 3.5 }} />
+                                <Legend align={chartData.length > 15 ? 'right' : 'center'} wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px', paddingRight: chartData.length > 15 ? '20px' : '0px' }} iconType="circle" />
+                                <Line type="monotone" dataKey="pm25" name="초미세먼지(PM2.5)" stroke="#FA4D56" strokeWidth={3} dot={{ r: 4 }} />
                               </LineChart>
                             )}
                           </ResponsiveContainer>
@@ -889,58 +881,58 @@ export default function Dashboard() {
               </div>
 
               <Card style={{ padding: '0', overflow: 'hidden' }}>
-                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: `1px solid ${theme.border}` }}>
-                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>종합 데이터 상세 내역 (일/15분 단위)</h4>
+                <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}` }}>
+                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>종합 데이터 상세 내역 (일/15분 단위)</h4>
                 </div>
                 
                 <div style={{ maxHeight: '600px', overflowY: 'auto', overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: isMobile ? '12px' : '13px', whiteSpace: 'nowrap' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '13px', whiteSpace: 'nowrap' }}>
                     <thead style={{ backgroundColor: '#F8FAFC', color: theme.textMuted, position: 'sticky', top: 0, zIndex: 1 }}>
                       <tr>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>상세</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>항목(일자/시간)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>사용량(kWh)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최대수요(kW)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>CO2(tCO2)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최고기온(°C)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최저기온(°C)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>습도(%)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>초미세먼지(PM2.5)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>상세</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>항목(일자/시간)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>사용량(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최대수요(kW)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>CO2(tCO2)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최고기온(°C)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>최저기온(°C)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>습도(%)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>초미세먼지(PM2.5)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {loading ? (
-                        <tr><td colSpan={9} style={{ padding: '50px', color: theme.primary, fontWeight: 700 }}>서버에서 데이터를 갱신하고 있습니다... ⏳</td></tr>
+                        <tr><td colSpan={9} style={{ padding: '60px', color: theme.primary, fontWeight: 700, fontSize: '15px' }}>서버에서 데이터를 갱신하고 있습니다... ⏳</td></tr>
                       ) : currentRows.length === 0 ? (
                         <tr><td colSpan={9} style={{ padding: '40px', color: theme.textMuted }}>데이터가 없습니다. 개소를 선택 후 조회를 실행해주세요.</td></tr>
                       ) : (
                         currentRows.map((row) => (
                           <React.Fragment key={row.date}>
                             <tr style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: expandedRows[row.date] ? '#F8FAFC' : '#FFF' }}>
-                              <td style={{ padding: '10px' }}>
+                              <td style={{ padding: '12px' }}>
                                 <button onClick={() => toggleRow(row.date)} style={{ width: '24px', height: '24px', border: `1px solid ${theme.border}`, backgroundColor: '#FFF', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{expandedRows[row.date] ? '-' : '+'}</button>
                               </td>
-                              <td style={{ padding: '10px', fontWeight: 700 }}>📁 {row.date}</td>
-                              <td style={{ padding: '10px', color: theme.primary, fontWeight: 700 }}>{row.usage_kwh.toLocaleString()}</td>
-                              <td style={{ padding: '10px', color: theme.danger, fontWeight: 600 }}>{row.peak_kw.toLocaleString()}</td>
-                              <td style={{ padding: '10px', color: theme.textMuted }}>{row.co2}</td>
-                              <td style={{ padding: '10px', fontWeight: 600 }}>{row.temp_max !== '--' && row.temp_max !== null ? `${row.temp_max}°` : '--'}</td>
-                              <td style={{ padding: '10px', fontWeight: 600, color: '#1192E8' }}>{row.temp_min !== '--' && row.temp_min !== null ? `${row.temp_min}°` : '--'}</td>
-                              <td style={{ padding: '10px' }}>{row.humidity !== '--' && row.humidity !== null ? `${row.humidity}%` : '--'}</td>
-                              <td style={{ padding: '10px' }}>{row.pm25}</td>
+                              <td style={{ padding: '12px', fontWeight: 700 }}>📁 {row.date}</td>
+                              <td style={{ padding: '12px', color: theme.primary, fontWeight: 700 }}>{row.usage_kwh.toLocaleString()}</td>
+                              <td style={{ padding: '12px', color: theme.danger, fontWeight: 600 }}>{row.peak_kw.toLocaleString()}</td>
+                              <td style={{ padding: '12px', color: theme.textMuted }}>{row.co2}</td>
+                              <td style={{ padding: '12px', fontWeight: 600 }}>{row.temp_max !== '--' && row.temp_max !== null ? `${row.temp_max}°` : '--'}</td>
+                              <td style={{ padding: '12px', fontWeight: 600, color: '#1192E8' }}>{row.temp_min !== '--' && row.temp_min !== null ? `${row.temp_min}°` : '--'}</td>
+                              <td style={{ padding: '12px' }}>{row.humidity !== '--' && row.humidity !== null ? `${row.humidity}%` : '--'}</td>
+                              <td style={{ padding: '12px' }}>{row.pm25}</td>
                             </tr>
                             
                             {expandedRows[row.date] && row.details && row.details.map((d: any, idx: number) => (
                               <tr key={`${row.date}-${idx}`} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: '#F8FAFC' }}>
-                                <td style={{ padding: '8px 10px' }}></td>
-                                <td style={{ padding: '8px 10px', color: theme.textMuted }}>↳ {d.time}</td>
-                                <td style={{ padding: '8px 10px', color: theme.primary, fontWeight: 700 }}>{d.usage_kwh.toLocaleString()}</td>
-                                <td style={{ padding: '8px 10px', color: theme.danger, fontWeight: 600 }}>{d.peak_kw.toLocaleString()}</td>
-                                <td style={{ padding: '8px 10px', color: theme.textMuted }}>{(d.usage_kwh * 0.466 / 1000).toFixed(3)}</td>
-                                <td style={{ padding: '8px 10px', color: theme.textMuted }}>-</td>
-                                <td style={{ padding: '8px 10px', color: theme.textMuted }}>-</td>
-                                <td style={{ padding: '8px 10px', color: theme.textMuted }}>-</td>
-                                <td style={{ padding: '8px 10px', color: theme.textMuted }}>-</td>
+                                <td style={{ padding: '8px 12px' }}></td>
+                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>↳ {d.time}</td>
+                                <td style={{ padding: '8px 12px', color: theme.primary, fontWeight: 700, fontSize: '13px' }}>{d.usage_kwh.toLocaleString()}</td>
+                                <td style={{ padding: '8px 12px', color: theme.danger, fontWeight: 600, fontSize: '13px' }}>{d.peak_kw.toLocaleString()}</td>
+                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>{(d.usage_kwh * 0.466 / 1000).toFixed(3)}</td>
+                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
+                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
+                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
+                                <td style={{ padding: '8px 12px', color: theme.textMuted, fontSize: '13px' }}>-</td>
                               </tr>
                             ))}
                           </React.Fragment>
@@ -951,10 +943,22 @@ export default function Dashboard() {
                 </div>
                 
                 {totalPages > 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '14px', gap: '16px', backgroundColor: '#F8FAFC', borderTop: `1px solid ${theme.border}` }}>
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '7px 14px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: currentPage === 1 ? '#F1F5F9' : '#FFF', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600, color: currentPage === 1 ? '#94A3B8' : theme.textMain }}>◀ 이전</button>
-                    <span style={{ fontSize: '13.5px', fontWeight: 700, color: theme.textMain }}>{currentPage} <span style={{ color: theme.textMuted, fontWeight: 500 }}>/ {totalPages}</span></span>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '7px 14px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: currentPage === totalPages ? '#F1F5F9' : '#FFF', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', fontWeight: 600, color: currentPage === totalPages ? '#94A3B8' : theme.textMain }}>다음 ▶</button>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px', gap: '16px', backgroundColor: '#F8FAFC', borderTop: `1px solid ${theme.border}` }}>
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                      style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: currentPage === 1 ? '#F1F5F9' : '#FFF', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600, color: currentPage === 1 ? '#94A3B8' : theme.textMain }}
+                    >
+                      ◀ 이전
+                    </button>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: theme.textMain }}>
+                      {currentPage} <span style={{ color: theme.textMuted, fontWeight: 500 }}>/ {totalPages}</span>
+                    </span>
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                      style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: currentPage === totalPages ? '#F1F5F9' : '#FFF', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', fontWeight: 600, color: currentPage === totalPages ? '#94A3B8' : theme.textMain }}
+                    >
+                      다음 ▶
+                    </button>
                   </div>
                 )}
               </Card>
@@ -964,21 +968,19 @@ export default function Dashboard() {
           {/* ===================== [2. 연도별 비교 탭] ===================== */}
           {mainTab === 'compare' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: isMobile ? '14px' : '0', marginBottom: isMobile ? '20px' : '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 6px 0', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>{station} 연도별 전력 비교</h2>
-                  <p style={{ margin: 0, color: theme.textMuted, fontSize: isMobile ? '0.85rem' : '1rem' }}>과거와 현재 전력 사용량 및 요금을 분석합니다.</p>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 연도별 전력 비교</h2>
+                  <p style={{ margin: 0, color: theme.textMuted }}>과거와 현재 전력 사용량 및 요금을 분석합니다.</p>
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? '10px' : '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  
                   {isAdmin ? (
                     <>
                       <input type="file" accept=".csv, .xlsx" id="compare-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
-                      {!isMobile && (
-                        <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                          📁 통합 데이터셋 업로드
-                        </button>
-                      )}
+                      <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
+                        📁 통합 데이터셋 업로드
+                      </button>
                     </>
                   ) : (
                     !isDatasetReady && (
@@ -988,59 +990,59 @@ export default function Dashboard() {
                     )
                   )}
 
-                  {/* 모바일에서는 2x2 깔끔한 그리드, PC에서는 기존 가로 바 */}
-                  <div style={{ 
-                    display: isMobile ? 'grid' : 'flex', 
-                    gridTemplateColumns: isMobile ? '1fr 1fr' : undefined,
-                    alignItems: 'center', gap: isMobile ? '10px' : '12px', 
-                    backgroundColor: theme.surface, padding: isMobile ? '12px' : '6px 16px', 
-                    borderRadius: '12px', border: `1px solid ${theme.border}`, position: 'relative' 
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.surface, padding: '6px 16px', borderRadius: '12px', border: `1px solid ${theme.border}`, position: 'relative' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기준연도</span>
-                      <input type="text" value={baseYear} onChange={(e) => setBaseYear(e.target.value)} style={{ width: isMobile ? '64px' : '48px', padding: '5px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
+                      <input type="text" value={baseYear} onChange={(e) => setBaseYear(e.target.value)} style={{ width: '48px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
                     </div>
-                    {!isMobile && <span style={{ color: theme.border }}>|</span>}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '6px' }}>
+                    <span style={{ color: theme.border }}>|</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>비교연도</span>
-                      <input type="text" value={compYear} onChange={(e) => setCompYear(e.target.value)} style={{ width: isMobile ? '64px' : '48px', padding: '5px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
+                      <input type="text" value={compYear} onChange={(e) => setCompYear(e.target.value)} style={{ width: '48px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
                     </div>
-                    {!isMobile && <span style={{ color: theme.border }}>|</span>}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '4px' }}>
+                    <span style={{ color: theme.border }}>|</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기간</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <select value={compStartMonth} onChange={(e) => { const v = e.target.value; setCompStartMonth(v); if (Number(v) > Number(compEndMonth)) setCompEndMonth(v); }} style={{ padding: '4px 5px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '12.5px' }}>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
-                        </select>
-                        <span>~</span>
-                        <select value={compEndMonth} onChange={(e) => { const v = e.target.value; setCompEndMonth(v); if (Number(v) < Number(compStartMonth)) setCompStartMonth(v); }} style={{ padding: '4px 5px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '12.5px' }}>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
-                        </select>
-                      </div>
+                      <select 
+                        value={compStartMonth} 
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setCompStartMonth(v);
+                          if (Number(v) > Number(compEndMonth)) setCompEndMonth(v);
+                        }}
+                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px' }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
+                      </select>
+                      <span>~</span>
+                      <select 
+                        value={compEndMonth} 
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setCompEndMonth(v);
+                          if (Number(v) < Number(compStartMonth)) setCompStartMonth(v);
+                        }}
+                        style={{ padding: '4px 6px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', fontWeight: 600, outline: 'none', cursor: 'pointer', fontSize: '13px' }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={String(m)}>{m}월</option>)}
+                      </select>
                     </div>
-                    {!isMobile && <span style={{ color: theme.border }}>|</span>}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '6px' }}>
+                    <span style={{ color: theme.border }}>|</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>단가(원)</span>
-                      <input type="text" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} style={{ width: isMobile ? '64px' : '56px', padding: '5px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
+                      <input type="text" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} style={{ width: '56px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
                     </div>
-                    <div style={{ position: isMobile ? 'static' : 'absolute', gridColumn: isMobile ? '1 / -1' : undefined, left: '4px', bottom: '-22px', fontSize: '12px', color: theme.textMuted, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    <div style={{ position: 'absolute', left: '4px', bottom: '-22px', fontSize: '12px', color: theme.textMuted, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       ※ 2023년부터 데이터 조회가 가능합니다.
                     </div>
                   </div>
-
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {isMobile && isAdmin && (
-                      <button onClick={() => document.getElementById('compare-upload')?.click()} style={{ flex: 1, padding: '10px 10px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
-                        📁 업로드
-                      </button>
-                    )}
-                    <button onClick={fetchCompareData} style={{ flex: isMobile ? 1 : 'none', padding: '10px 16px', backgroundColor: theme.secondary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>분석 실행</button>
-                    <button onClick={handleExportCompareExcel} style={{ flex: isMobile ? 1 : 'none', padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>📊 다운로드</button>
-                  </div>
+                  <button onClick={fetchCompareData} style={{ padding: '10px 16px', backgroundColor: theme.secondary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>분석 실행</button>
+                  <button onClick={handleExportCompareExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>📊 다운로드</button>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '12px' : '24px', marginBottom: isMobile ? '20px' : '32px' }}>
+              {/* 🌟 2. 연도별 비교 탭: 총 사용량, 기준연도 사용량, 전력량 증감, 요금 증감액 정수 반올림 표기 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                 <StatCard 
                   title={`${compYear}년 총 사용량`} 
                   value={compLoading ? '...' : Math.round(compSummary.total_comp || 0).toLocaleString()} 
@@ -1066,58 +1068,58 @@ export default function Dashboard() {
                 />
               </div>
 
-              <Card style={{ marginBottom: isMobile ? '20px' : '32px' }}>
+              <Card style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
-                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>월별 전력 사용량 비교 ({baseYear}년 vs {compYear}년)</h4>
+                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 전력 사용량 비교 ({baseYear}년 vs {compYear}년)</h4>
                   <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>(단위: MWh)</span>
                 </div>
-                <div style={{ height: isMobile ? '260px' : '380px', width: '100%' }}>
-                  {compLoading ? <p style={{ textAlign: 'center', paddingTop: '110px', color: theme.secondary, fontWeight: 700 }}>데이터 분석 중... ⏳</p> : (
+                <div style={{ height: '380px', width: '100%' }}>
+                  {compLoading ? <p style={{ textAlign: 'center', paddingTop: '150px', color: theme.secondary, fontWeight: 700 }}>데이터 분석 중... ⏳</p> : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={compRecords} margin={{ top: 5, right: 0, left: isMobile ? -15 : 10, bottom: 0 }}>
+                      <BarChart data={compRecords} margin={{ top: 5, right: 0, left: 10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                        <XAxis dataKey="month" tick={{ fill: theme.textMuted, fontSize: isMobile ? 11 : 13 }} axisLine={false} tickLine={false} dy={10} />
-                        <YAxis tickFormatter={(val) => (val / 1000).toLocaleString()} tick={{ fill: theme.textMuted, fontSize: isMobile ? 11 : 13 }} axisLine={false} tickLine={false} />
+                        <XAxis dataKey="month" tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} dy={10} />
+                        <YAxis tickFormatter={(val) => (val / 1000).toLocaleString()} tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} />
                         <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val, name) => [`${(Number(val) / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MWh`, name]} />
-                        <Legend wrapperStyle={{ fontSize: '12.5px', fontWeight: 600, color: theme.textMuted, paddingTop: '16px' }} iconType="circle" />
-                        <Bar dataKey="base_val" name={`${baseYear}년 (기준)`} fill="#94A3B8" radius={[6, 6, 0, 0]} barSize={isMobile ? 14 : 32} />
-                        <Bar dataKey="comp_val" name={`${compYear}년 (비교)`} fill={theme.secondary} radius={[6, 6, 0, 0]} barSize={isMobile ? 14 : 32} />
+                        <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: theme.textMuted, paddingTop: '20px' }} iconType="circle" />
+                        <Bar dataKey="base_val" name={`${baseYear}년 (기준)`} fill="#94A3B8" radius={[6, 6, 0, 0]} barSize={32} />
+                        <Bar dataKey="comp_val" name={`${compYear}년 (비교)`} fill={theme.secondary} radius={[6, 6, 0, 0]} barSize={32} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
                 </div>
               </Card>
 
-              <Card style={{ padding: '0', overflow: 'hidden', marginBottom: isMobile ? '20px' : '32px' }}>
-                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: `1px solid ${theme.border}` }}>
-                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>월별 비교 상세 데이터</h4>
+              <Card style={{ padding: '0', overflow: 'hidden', marginBottom: '32px' }}>
+                <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}` }}>
+                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 비교 상세 데이터</h4>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: isMobile ? '12.5px' : '14px', whiteSpace: 'nowrap' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '14px' }}>
                     <thead style={{ backgroundColor: '#F8FAFC', color: theme.textMuted }}>
                       <tr>
-                        <th style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>월별</th>
-                        <th style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>기준연도 (kWh)</th>
-                        <th style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>비교연도 (kWh)</th>
-                        <th style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>증감량 (kWh)</th>
-                        <th style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>증감률 (%)</th>
-                        <th style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>요금 증감 (원)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>월별</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>기준연도 (kWh)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>비교연도 (kWh)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>증감량 (kWh)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>증감률 (%)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>요금 증감 (원)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {compLoading ? (
-                        <tr><td colSpan={6} style={{ padding: '50px', color: theme.secondary, fontWeight: 700 }}>과거 데이터와 비교 연산을 수행하고 있습니다... ⏳</td></tr>
+                        <tr><td colSpan={6} style={{ padding: '60px', color: theme.secondary, fontWeight: 700, fontSize: '15px' }}>과거 데이터와 비교 연산을 수행하고 있습니다... ⏳</td></tr>
                       ) : compRecords.length === 0 ? (
                         <tr><td colSpan={6} style={{ padding: '40px', color: theme.textMuted }}>개소를 선택 후 비교 분석을 실행해 주세요.</td></tr>
                       ) : (
                         compRecords.map((row, idx) => (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                            <td style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 700, color: theme.textMain }}>{row.month}</td>
-                            <td style={{ padding: isMobile ? '12px 10px' : '16px', color: theme.textMuted, fontWeight: 500 }}>{Math.round(row.base_val).toLocaleString()}</td>
-                            <td style={{ padding: isMobile ? '12px 10px' : '16px', color: theme.secondary, fontWeight: 700 }}>{Math.round(row.comp_val).toLocaleString()}</td>
-                            <td style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, color: row.diff > 0 ? theme.danger : theme.success }}><span style={{ backgroundColor: row.diff > 0 ? '#FEF2F2' : '#ECFDF5', padding: '4px 10px', borderRadius: '20px' }}>{Math.round(row.diff) > 0 ? '+' : ''}{Math.round(row.diff).toLocaleString()}</span></td>
-                            <td style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 700, color: row.diff_pct > 0 ? theme.danger : theme.success }}>{row.diff_pct > 0 ? '+' : ''}{row.diff_pct}%</td>
-                            <td style={{ padding: isMobile ? '12px 10px' : '16px', fontWeight: 600, color: row.cost > 0 ? theme.danger : theme.success }}>{Math.round(row.cost) > 0 ? '+' : ''}{Math.round(row.cost).toLocaleString()}</td>
+                            <td style={{ padding: '16px', fontWeight: 700, color: theme.textMain }}>{row.month}</td>
+                            <td style={{ padding: '16px', color: theme.textMuted, fontWeight: 500 }}>{Math.round(row.base_val).toLocaleString()}</td>
+                            <td style={{ padding: '16px', color: theme.secondary, fontWeight: 700 }}>{Math.round(row.comp_val).toLocaleString()}</td>
+                            <td style={{ padding: '16px', fontWeight: 600, color: row.diff > 0 ? theme.danger : theme.success }}><span style={{ backgroundColor: row.diff > 0 ? '#FEF2F2' : '#ECFDF5', padding: '4px 10px', borderRadius: '20px' }}>{Math.round(row.diff) > 0 ? '+' : ''}{Math.round(row.diff).toLocaleString()}</span></td>
+                            <td style={{ padding: '16px', fontWeight: 700, color: row.diff_pct > 0 ? theme.danger : theme.success }}>{row.diff_pct > 0 ? '+' : ''}{row.diff_pct}%</td>
+                            <td style={{ padding: '16px', fontWeight: 600, color: row.cost > 0 ? theme.danger : theme.success }}>{Math.round(row.cost) > 0 ? '+' : ''}{Math.round(row.cost).toLocaleString()}</td>
                           </tr>
                         ))
                       )}
@@ -1127,14 +1129,14 @@ export default function Dashboard() {
               </Card>
 
               <Card style={{ padding: '0', overflow: 'hidden', border: `1px solid ${theme.primary}` }}>
-                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: `1px solid ${theme.border}`, backgroundColor: '#F8FAFC' }}>
-                  <h4 style={{ margin: 0, color: theme.primary, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>💡 XGBoost 증감 요인 심층 분석 리포트</h4>
+                <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}`, backgroundColor: '#F8FAFC' }}>
+                  <h4 style={{ margin: 0, color: theme.primary, fontSize: '1.1rem', fontWeight: 700 }}>💡 XGBoost 증감 요인 심층 분석 리포트</h4>
                 </div>
-                <div style={{ padding: isMobile ? '16px' : '24px', backgroundColor: '#FFFFFF' }}>
+                <div style={{ padding: '24px', backgroundColor: '#FFFFFF' }}>
                   {compLoading ? (
                     <p style={{ color: theme.secondary, fontWeight: 700 }}>AI가 데이터를 분석하고 있습니다... ⏳</p>
                   ) : aiReport ? (
-                    <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', color: theme.textMain, fontSize: isMobile ? '13.5px' : '15px', lineHeight: '1.65', margin: 0, fontWeight: 500 }}>{aiReport}</pre>
+                    <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: theme.textMain, fontSize: '15px', lineHeight: '1.7', margin: 0, fontWeight: 500 }}>{aiReport}</pre>
                   ) : <p style={{ color: theme.textMuted, fontWeight: 500 }}>비교 분석을 실행해 주세요.</p>}
                 </div>
               </Card>
@@ -1144,14 +1146,14 @@ export default function Dashboard() {
           {/* ===================== [3. AI 수요 예측 탭] ===================== */}
           {mainTab === 'predict' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: isMobile ? '14px' : '0', marginBottom: isMobile ? '16px' : '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>{station} AI 전력 수요 예측</h2>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(232, 62, 140, 0.1)', color: theme.ai, padding: '4px 12px', borderRadius: '16px', fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 700 }}>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} AI 전력 수요 예측</h2>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(232, 62, 140, 0.1)', color: theme.ai, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 700 }}>
                     <span style={{ fontSize: '1rem' }}>🧠</span> XGBoost Regressor 기반 초정밀 예측 모델
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
                     <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>타겟 연도</span>
                     <input type="text" value={targetYear} onChange={(e) => setTargetYear(e.target.value)} style={{ width: '50px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
@@ -1160,48 +1162,49 @@ export default function Dashboard() {
                   {isAdmin ? (
                     <>
                       <input type="file" accept=".csv, .xlsx" id="predict-upload" style={{ display: 'none' }} onChange={handleFileUpload} />
-                      <button onClick={() => document.getElementById('predict-upload')?.click()} style={{ padding: '10px 14px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                        📁 {isMobile ? '업로드' : '통합 데이터셋 업로드'}
+                      <button onClick={() => document.getElementById('predict-upload')?.click()} style={{ padding: '10px 16px', backgroundColor: '#ECFDF5', color: theme.success, border: `1px solid #A7F3D0`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', gap: '6px' }}>
+                        📁 통합 데이터셋 업로드
                       </button>
                     </>
                   ) : (
                     !isDatasetReady && (
-                      <div style={{ padding: '10px 14px', backgroundColor: '#FEF2F2', color: theme.danger, borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: '1px solid #FECACA' }}>
-                        ⚠️ 데이터셋 미연동
+                      <div style={{ padding: '10px 16px', backgroundColor: '#FEF2F2', color: theme.danger, borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: '1px solid #FECACA' }}>
+                        ⚠️ 데이터셋 미연동 (관리자 문의)
                       </div>
                     )
                   )}
 
-                  <button onClick={runAIPrediction} disabled={predLoading} style={{ flex: isMobile ? 1 : 'none', padding: '10px 20px', backgroundColor: theme.ai, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13.5px', opacity: predLoading ? 0.7 : 1 }}>
+                  <button onClick={runAIPrediction} disabled={predLoading} style={{ padding: '10px 24px', backgroundColor: theme.ai, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', opacity: predLoading ? 0.7 : 1 }}>
                     {predLoading ? '분석 중...' : 'AI 예측 실행'}
                   </button>
                 </div>
               </div>
 
-              <div style={{ backgroundColor: theme.surface, padding: isMobile ? '14px' : '16px 24px', borderRadius: theme.radius, border: `1px solid ${theme.border}`, marginBottom: isMobile ? '20px' : '32px', display: isMobile ? 'grid' : 'flex', gridTemplateColumns: isMobile ? '1fr 1fr' : undefined, alignItems: 'center', gap: isMobile ? '10px' : '20px', flexWrap: 'wrap' }}>
-                <span style={{ gridColumn: isMobile ? '1 / -1' : undefined, fontSize: isMobile ? '0.95rem' : '1rem', fontWeight: 700, color: theme.textMain }}>🔮 시뮬레이션 변수 조정</span>
-                {!isMobile && <div style={{ width: '1px', height: '24px', backgroundColor: theme.border }}></div>}
+              <div style={{ backgroundColor: theme.surface, padding: '16px 24px', borderRadius: theme.radius, border: `1px solid ${theme.border}`, marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '1rem', fontWeight: 700, color: theme.textMain }}>🔮 시뮬레이션 변수 조정</span>
+                <div style={{ width: '1px', height: '24px', backgroundColor: theme.border }}></div>
                 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>승객수(%)</span>
-                  <input type="text" value={passRate} onChange={(e) => setPassRate(e.target.value)} style={{ width: '52px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                  <input type="text" value={passRate} onChange={(e) => setPassRate(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>여름(±°C)</span>
-                  <input type="text" value={tempAdj} onChange={(e) => setTempAdj(e.target.value)} style={{ width: '52px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                  <input type="text" value={tempAdj} onChange={(e) => setTempAdj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>겨울(±°C)</span>
-                  <input type="text" value={winterTempAdj} onChange={(e) => setWinterTempAdj(e.target.value)} style={{ width: '52px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                  <input type="text" value={winterTempAdj} onChange={(e) => setWinterTempAdj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap: '8px' }}>
-                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>PM2.5(±일)</span>
-                  <input type="text" value={pm25Adj} onChange={(e) => setPm25Adj(e.target.value)} style={{ width: '52px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>PM2.5 나쁨(±일)</span>
+                  <input type="text" value={pm25Adj} onChange={(e) => setPm25Adj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
                 </div>
               </div>
 
+              {/* 🌟 3. AI 수요 예측 탭: 예상 연간 총 전력량 및 최대 수요(Peak) 정수 반올림 표기 */}
               {predSummary && !predLoading && (
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '12px' : '24px', marginBottom: isMobile ? '20px' : '32px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
                   <StatCard 
                     title="예상 연간 총 전력량" 
                     value={Math.round(predSummary.tot_future || 0).toLocaleString()} 
@@ -1230,53 +1233,53 @@ export default function Dashboard() {
               )}
 
               {predLoading ? (
-                <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '60px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
-                  <span style={{ fontSize: '2.5rem' }}>⏳</span>
-                  <h3 style={{ color: theme.ai, marginTop: '14px', marginBottom: '8px', fontSize: isMobile ? '1.1rem' : '1.3rem' }}>AI가 데이터를 학습하여 예측 중입니다...</h3>
-                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.9rem' }}>잠시만 기다려주세요.</p>
+                <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '80px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
+                  <span style={{ fontSize: '3rem' }}>⏳</span>
+                  <h3 style={{ color: theme.ai, marginTop: '16px', marginBottom: '8px' }}>AI가 수십만 건의 데이터를 학습하여 예측 중입니다...</h3>
+                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>잠시만 기다려주세요.</p>
                 </div>
               ) : predChartData.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: isMobile ? '16px' : '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
                   <Card>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
-                      <h4 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>{targetYear}년 월별 전력 수요 예측 추이</h4>
+                      <h4 style={{ margin: '0 0 24px 0', color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>{targetYear}년 월별 전력 수요 예측 추이</h4>
                       <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>(단위: MWh)</span>
                     </div>
-                    <div style={{ height: isMobile ? '260px' : '350px', width: '100%' }}>
+                    <div style={{ height: '350px', width: '100%' }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={predChartData} margin={{ top: 5, right: 15, left: isMobile ? -15 : 10, bottom: 0 }}>
+                        <LineChart data={predChartData} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.border} />
-                          <XAxis dataKey="month" tick={{ fill: theme.textMuted, fontSize: isMobile ? 11 : 13 }} axisLine={false} tickLine={false} dy={10} />
-                          <YAxis tickFormatter={(val) => (val / 1000).toLocaleString()} tick={{ fill: theme.textMuted, fontSize: isMobile ? 11 : 13 }} axisLine={false} tickLine={false} />
+                          <XAxis dataKey="month" tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} dy={10} />
+                          <YAxis tickFormatter={(val) => (val / 1000).toLocaleString()} tick={{ fill: theme.textMuted, fontSize: 13 }} axisLine={false} tickLine={false} />
                           <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val, name) => [`${(Number(val) / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MWh`, name]} />
-                          <Legend wrapperStyle={{ fontSize: '12.5px', fontWeight: 600, paddingTop: '16px' }} />
-                          <Line type="monotone" dataKey="past_kwh" name="직전연도 실측치" stroke="#94A3B8" strokeWidth={2} dot={{ r: 3.5 }} />
-                          <Line type="monotone" dataKey="pred_kwh" name={`${targetYear}년 AI 예측치`} stroke={theme.ai} strokeWidth={3.5} strokeDasharray="5 5" dot={{ r: 5, fill: '#FFF', strokeWidth: 2 }} activeDot={{ r: 7 }} />
+                          <Legend wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '20px' }} />
+                          <Line type="monotone" dataKey="past_kwh" name="직전연도 실측치" stroke="#94A3B8" strokeWidth={2} dot={{ r: 4 }} />
+                          <Line type="monotone" dataKey="pred_kwh" name={`${targetYear}년 AI 예측치`} stroke={theme.ai} strokeWidth={4} strokeDasharray="5 5" dot={{ r: 6, fill: '#FFF', strokeWidth: 2 }} activeDot={{ r: 8 }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </Card>
                   
                   <Card>
-                    <h4 style={{ margin: '0 0 16px 0', color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>예측 변수 중요도</h4>
-                    <div style={{ height: isMobile ? '240px' : '350px', width: '100%' }}>
+                    <h4 style={{ margin: '0 0 24px 0', color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>예측 변수 중요도</h4>
+                    <div style={{ height: '350px', width: '100%' }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={featChartData} margin={{ top: 5, right: 20, left: 45, bottom: 0 }}>
+                        <BarChart layout="vertical" data={featChartData} margin={{ top: 5, right: 30, left: 70, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.border} />
-                          <XAxis type="number" tick={{ fill: theme.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                          <YAxis dataKey="name" type="category" tick={{ fill: theme.textMain, fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                          <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val) => val + '%'} />
-                          <Bar dataKey="value" name="중요도(%)" fill={theme.secondary} radius={[0, 6, 6, 0]} barSize={20} />
+                          <XAxis type="number" tick={{ fill: theme.textMuted, fontSize: 12 }} axisLine={false} tickLine={false} />
+                          <YAxis dataKey="name" type="category" tick={{ fill: theme.textMain, fontSize: 13, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                          <Tooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: theme.shadow, fontWeight: 600 }} formatter={(val, name) => val + '%'} />
+                          <Bar dataKey="value" name="중요도(%)" fill={theme.secondary} radius={[0, 6, 6, 0]} barSize={24} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </Card>
                 </div>
               ) : (
-                <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '60px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
-                  <span style={{ fontSize: '2.5rem' }}>📈</span>
-                  <h3 style={{ color: theme.textMain, marginTop: '14px', marginBottom: '8px', fontSize: isMobile ? '1.1rem' : '1.3rem' }}>시뮬레이션 대기 중</h3>
-                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.9rem' }}>변수 조정 후 상단의 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
+                <div style={{ backgroundColor: theme.surface, borderRadius: theme.radius, padding: '80px 20px', textAlign: 'center', border: `1px dashed ${theme.border}` }}>
+                  <span style={{ fontSize: '3rem' }}>📈</span>
+                  <h3 style={{ color: theme.textMain, marginTop: '16px', marginBottom: '8px' }}>시뮬레이션 대기 중</h3>
+                  <p style={{ color: theme.textMuted, margin: 0, fontSize: '0.95rem' }}>시뮬레이션 변수 조정 후 우측 상단의 <b>[AI 예측 실행]</b> 버튼을 눌러보세요.</p>
                 </div>
               )}
             </div>
@@ -1285,78 +1288,78 @@ export default function Dashboard() {
           {/* ===================== [4. 전기요금 탭] ===================== */}
           {mainTab === 'bill' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: isMobile ? '14px' : '0', marginBottom: isMobile ? '20px' : '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>{station} 전기요금 청구 내역</h2>
-                  <div style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', backgroundColor: '#F3F4F6', color: theme.textMain, padding: '4px 12px', borderRadius: '16px', fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 600 }}>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 전기요금 청구 내역</h2>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#F3F4F6', color: theme.textMain, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>🧾</span> 한전 고객번호: {billCustNo || '조회 전'} 
-                    {station === '1호선' && <span style={{ color: theme.danger }}>(※ 1호선 모수용 통합 청구)</span>}
+                    {station === '1호선' && <span style={{ color: theme.danger, marginLeft: '8px' }}>(※ 1호선은 전 역사 모수용 통합 청구 기준)</span>}
                   </div>
                 </div>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.surface, padding: '6px 12px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
-                    <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>연도</span>
-                    <input type="text" value={billYear} onChange={(e) => setBillYear(e.target.value)} style={{ width: '48px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
+                    <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>조회 연도</span>
+                    <input type="text" value={billYear} onChange={(e) => setBillYear(e.target.value)} style={{ width: '50px', border: 'none', outline: 'none', color: theme.textMain, fontSize: '14px', fontWeight: 700, backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center' }} />
                   </div>
-                  <button onClick={fetchBillData} style={{ flex: isMobile ? 1 : 'none', padding: '10px 18px', backgroundColor: theme.success, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13.5px', whiteSpace: 'nowrap' }}>요금 조회</button>
-                  <button onClick={handleExportBillExcel} style={{ flex: isMobile ? 1 : 'none', padding: '10px 14px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13.5px', display: 'flex', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>📊 다운로드</button>
+                  <button onClick={fetchBillData} style={{ padding: '10px 20px', backgroundColor: theme.success, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>요금 조회</button>
+                  <button onClick={handleExportBillExcel} style={{ padding: '10px 20px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', gap: '6px' }}>📊 엑셀 다운로드</button>
                 </div>
               </div>
 
               <Card style={{ padding: '0', overflow: 'hidden' }}>
-                <div style={{ padding: isMobile ? '16px' : '24px', borderBottom: `1px solid ${theme.border}` }}>
-                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 700 }}>월별 상세 요금 청구서 ({billYear}년)</h4>
+                <div style={{ padding: '24px', borderBottom: `1px solid ${theme.border}` }}>
+                  <h4 style={{ margin: 0, color: theme.textMain, fontSize: '1.1rem', fontWeight: 700 }}>월별 상세 요금 청구서 ({billYear}년)</h4>
                 </div>
                 
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: isMobile ? '12px' : '13px', whiteSpace: 'nowrap' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '13px', whiteSpace: 'nowrap' }}>
                     <thead style={{ backgroundColor: '#F8FAFC', color: theme.textMuted }}>
                       <tr>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>청구년월</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>검침일</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>적용전력(kW)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>기본요금(원)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>전력량요금(원)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>할인공제(원)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>요금계(원)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, backgroundColor: '#EFF6FF', color: theme.primary }}>청구요금(원)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>경부하(kWh)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(경)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>중부하(kWh)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(중)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(최대)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}`, backgroundColor: '#EFF6FF', color: theme.primary }}>전력사용량(kWh)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>지상역률(%)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>청구년월</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>검침일</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>적용전력(kW)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>기본요금(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>전력량요금(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>할인공제(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>요금계(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, backgroundColor: '#EFF6FF', color: theme.primary }}>청구요금(원)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>경부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(경)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>중부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(중)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(최대)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}`, backgroundColor: '#EFF6FF', color: theme.primary }}>전력사용량(kWh)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>지상역률(%)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {billLoading ? (
-                        <tr><td colSpan={17} style={{ padding: '50px', color: theme.success, fontWeight: 700 }}>한전 서버에서 청구 데이터를 수집 중입니다... ⏳</td></tr>
+                        <tr><td colSpan={17} style={{ padding: '60px', color: theme.success, fontWeight: 700, fontSize: '15px' }}>한전 서버에서 청구 데이터를 수집 중입니다... ⏳</td></tr>
                       ) : billRecords.length === 0 ? (
-                        <tr><td colSpan={17} style={{ padding: '50px', color: theme.textMuted }}>조회된 전기요금 청구 내역이 없습니다.</td></tr>
+                        <tr><td colSpan={17} style={{ padding: '60px', color: theme.textMuted }}>조회된 전기요금 청구 내역이 없습니다. (조회 연도와 대상 개소를 확인해주세요)</td></tr>
                       ) : (
                         billRecords.map((row: any, idx: number) => (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: '#FFF' }}>
-                            <td style={{ padding: '10px', fontWeight: 700 }}>{row.bill_ym?.replace(/(\d{4})(\d{2})/, '$1-$2')}</td>
-                            <td style={{ padding: '10px' }}>{row.mr_ymd}일</td>
-                            <td style={{ padding: '10px' }}>{Number(row.bill_aply_pwr || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px' }}>{Number(row.base_bill || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px' }}>{Number(row.kwh_bill || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', color: theme.success }}>{Number(row.dc_bill || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px' }}>{Number(row.req_bill || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', fontWeight: 800, color: theme.primary, backgroundColor: '#FAFAFA' }}>{Number(row.req_amt || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.lload_usekwh || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', color: theme.textMain, fontWeight: 600 }}>{Number(row.lload_needle || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.mload_usekwh || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', color: theme.textMain, fontWeight: 600 }}>{Number(row.mload_needle || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.maxload_usekwh || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', color: theme.textMain, fontWeight: 600 }}>{Number(row.maxload_needle || 0).toLocaleString()}</td>
-                            <td style={{ padding: '10px', fontWeight: 800, color: theme.primary, backgroundColor: '#FAFAFA', borderLeft: `1px solid ${theme.border}` }}>{(Number(row.lload_usekwh || 0) + Number(row.mload_usekwh || 0) + Number(row.maxload_usekwh || 0)).toLocaleString()}</td>
-                            <td style={{ padding: '10px', borderLeft: `1px solid ${theme.border}` }}>{row.ji_pwrfact}</td>
-                            <td style={{ padding: '10px' }}>{row.jn_pwrfact}</td>
+                            <td style={{ padding: '12px', fontWeight: 700 }}>{row.bill_ym?.replace(/(\d{4})(\d{2})/, '$1-$2')}</td>
+                            <td style={{ padding: '12px' }}>{row.mr_ymd}일</td>
+                            <td style={{ padding: '12px' }}>{Number(row.bill_aply_pwr || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>{Number(row.base_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>{Number(row.kwh_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.success }}>{Number(row.dc_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px' }}>{Number(row.req_bill || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', fontWeight: 800, color: theme.primary, backgroundColor: '#FAFAFA' }}>{Number(row.req_amt || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.lload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.lload_needle || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.mload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.mload_needle || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.maxload_usekwh || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.maxload_needle || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', fontWeight: 800, color: theme.primary, backgroundColor: '#FAFAFA', borderLeft: `1px solid ${theme.border}` }}>{(Number(row.lload_usekwh || 0) + Number(row.mload_usekwh || 0) + Number(row.maxload_usekwh || 0)).toLocaleString()}</td>
+                            <td style={{ padding: '12px', borderLeft: `1px solid ${theme.border}` }}>{row.ji_pwrfact}</td>
+                            <td style={{ padding: '12px' }}>{row.jn_pwrfact}</td>
                           </tr>
                         ))
                       )}
@@ -1370,21 +1373,21 @@ export default function Dashboard() {
           {/* ===================== [5. 부하증감 신고 탭] ===================== */}
           {mainTab === 'report' && (
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: isMobile ? '14px' : '0', marginBottom: isMobile ? '20px' : '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>부하증감 신고</h2>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#FEF2F2', color: theme.danger, padding: '4px 12px', borderRadius: '16px', fontSize: isMobile ? '0.8rem' : '0.85rem', fontWeight: 600 }}>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>부하증감 신고</h2>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#FEF2F2', color: theme.danger, padding: '4px 12px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 600 }}>
                     <span style={{ fontSize: '1rem' }}>📝</span> 역사 및 기지 내 신설/철거 설비의 전력 정보를 계통에 매핑합니다.
                   </div>
                 </div>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   {isAdmin && selectedForDeletion.length > 0 && (
-                    <button onClick={handleDeleteSelected} style={{ flex: isMobile ? 1 : 'none', padding: '10px 16px', backgroundColor: '#FEE2E2', color: theme.danger, border: `1px solid ${theme.danger}`, borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13.5px' }}>
+                    <button onClick={handleDeleteSelected} style={{ padding: '10px 20px', backgroundColor: '#FEE2E2', color: theme.danger, border: `1px solid ${theme.danger}`, borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
                       🗑️ 선택 삭제 ({selectedForDeletion.length})
                     </button>
                   )}
-                  <button onClick={() => setShowNewReportModal(true)} style={{ flex: isMobile ? 1 : 'none', padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13.5px' }}>
+                  <button onClick={() => setShowNewReportModal(true)} style={{ padding: '10px 20px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
                     + 신규 부하 신고서 작성
                   </button>
                 </div>
@@ -1392,20 +1395,20 @@ export default function Dashboard() {
 
               <Card style={{ padding: '0', overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: isMobile ? '12.5px' : '14px', whiteSpace: 'nowrap' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '14px', whiteSpace: 'nowrap' }}>
                     <thead style={{ backgroundColor: '#F8FAFC', color: theme.textMuted }}>
                       <tr>
-                        {isAdmin && <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, width: '40px' }}>선택</th>}
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>등록일</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>담당부서(자)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>설치위치(역사명)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>구분</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, textAlign: 'left' }}>설비 내용</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>소비전력</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>가동시간 (자동)</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>적용예정일</th>
-                        <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>상태</th>
-                        {isAdmin && <th style={{ padding: '14px 10px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>급전 계통(변전소) 매핑</th>}
+                        {isAdmin && <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, width: '40px' }}>선택</th>}
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>등록일</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>담당부서(자)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>설치위치(역사명)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>구분</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, textAlign: 'left' }}>설비 내용</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>소비전력</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>가동시간 (자동)</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>적용예정일</th>
+                        <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>상태</th>
+                        {isAdmin && <th style={{ padding: '16px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>급전 계통(변전소) 매핑</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1415,33 +1418,50 @@ export default function Dashboard() {
                         reports.map((row) => (
                           <tr key={row.id} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: selectedForDeletion.includes(row.id) ? '#FEF2F2' : '#FFF' }}>
                             {isAdmin && (
-                              <td style={{ padding: '12px 10px' }}>
-                                <input type="checkbox" checked={selectedForDeletion.includes(row.id)} onChange={() => toggleSelectForDeletion(row.id)} style={{ cursor: 'pointer', transform: 'scale(1.2)' }} />
+                              <td style={{ padding: '16px' }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedForDeletion.includes(row.id)} 
+                                  onChange={() => toggleSelectForDeletion(row.id)} 
+                                  style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                                />
                               </td>
                             )}
-                            <td style={{ padding: '12px 10px', color: theme.textMuted }}>{row.reqDate}</td>
-                            <td style={{ padding: '12px 10px', fontWeight: 600 }}>{row.dept}<br/><span style={{fontSize:'11.5px', color:theme.textMuted}}>{row.name}</span></td>
-                            <td style={{ padding: '12px 10px', fontWeight: 700 }}>{row.line} {row.station}</td>
-                            <td style={{ padding: '12px 10px', fontWeight: 700, color: row.type?.includes('+') ? theme.danger : theme.success }}>{row.type}</td>
-                            <td style={{ padding: '12px 10px', textAlign: 'left', fontWeight: 500 }}>{row.desc}</td>
-                            <td style={{ padding: '12px 10px', fontWeight: 700 }}>{row.kw} kW</td>
-                            <td style={{ padding: '12px 10px', color: theme.textMain }}>{row.startTime}~{row.endTime}<br/><span style={{ color: theme.textMuted, fontSize: '11.5px', fontWeight: 600 }}>({row.hours}시간)</span></td>
-                            <td style={{ padding: '12px 10px', fontWeight: 600 }}>{row.applyDate}</td>
-                            <td style={{ padding: '12px 10px' }}>
-                              <span style={{ padding: '5px 10px', borderRadius: '20px', fontSize: '11.5px', fontWeight: 700, backgroundColor: row.status === '확인중' ? '#FEF9C3' : '#ECFDF5', color: row.status === '확인중' ? '#A16207' : theme.success }}>
+                            <td style={{ padding: '16px', color: theme.textMuted }}>{row.reqDate}</td>
+                            <td style={{ padding: '16px', fontWeight: 600 }}>{row.dept}<br/><span style={{fontSize:'12px', color:theme.textMuted}}>{row.name}</span></td>
+                            <td style={{ padding: '16px', fontWeight: 700 }}>{row.line} {row.station}</td>
+                            <td style={{ padding: '16px', fontWeight: 700, color: row.type?.includes('+') ? theme.danger : theme.success }}>
+                              {row.type}
+                            </td>
+                            <td style={{ padding: '16px', textAlign: 'left', fontWeight: 500 }}>{row.desc}</td>
+                            <td style={{ padding: '16px', fontWeight: 700 }}>{row.kw} kW</td>
+                            <td style={{ padding: '16px', color: theme.textMain }}>
+                              {row.startTime}~{row.endTime}<br/>
+                              <span style={{ color: theme.textMuted, fontSize: '12px', fontWeight: 600 }}>({row.hours}시간)</span>
+                            </td>
+                            <td style={{ padding: '16px', fontWeight: 600 }}>{row.applyDate}</td>
+                            <td style={{ padding: '16px' }}>
+                              <span style={{ 
+                                padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+                                backgroundColor: row.status === '확인중' ? '#FEF9C3' : '#ECFDF5',
+                                color: row.status === '확인중' ? '#A16207' : theme.success
+                              }}>
                                 {row.status}
                               </span>
                             </td>
+                            
                             {isAdmin && (
-                              <td style={{ padding: '12px 10px' }}>
+                              <td style={{ padding: '16px' }}>
                                 {row.status === '확인중' ? (
                                   <button onClick={() => handleConfirmReport(row.id)} style={{ padding: '6px 12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}>
                                     내용 확인 및 계통 연결
                                   </button>
                                 ) : (
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ color: theme.primary, fontWeight: 700, fontSize: '13px' }}>⚡ {row.substation}</span>
-                                    <button onClick={() => handleUnmapReport(row.id)} style={{ padding: '3px 8px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>해제</button>
+                                    <span style={{ color: theme.primary, fontWeight: 700, fontSize: '14px' }}>⚡ {row.substation}</span>
+                                    <button onClick={() => handleUnmapReport(row.id)} style={{ padding: '4px 8px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                      해제
+                                    </button>
                                   </div>
                                 )}
                               </td>
@@ -1456,17 +1476,20 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ===================== [6. 실시간 종합 관제 상황판 탭] ===================== */}
+        </div>
+      </div>
+
+{/* ===================== [6. 24개 전 개소 종합 관제 상황판 탭] ===================== */}
           {mainTab === 'overview' && (
             <div style={{ maxWidth: '1450px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: isMobile ? '12px' : '0', marginBottom: isMobile ? '16px' : '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
                 <div>
-                  <h2 style={{ color: theme.textMain, margin: '0 0 6px 0', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>🚦 실시간 종합 관제 상황판</h2>
-                  <p style={{ margin: 0, color: theme.textMuted, fontSize: isMobile ? '0.82rem' : '0.95rem', lineHeight: 1.4 }}>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>🚦 실시간 종합 관제 상황판</h2>
+                  <p style={{ margin: 0, color: theme.textMuted, fontSize: '0.95rem' }}>
                     금일 피크 및 전일 동시간 대비 부하 증감 현황입니다. (카드 클릭 시 해당 역사 실시간 화면으로 이동)
                   </p>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   {overviewUpdatedAt && (
                     <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>
                       ⏱ 갱신: {overviewUpdatedAt}
@@ -1475,52 +1498,52 @@ export default function Dashboard() {
                   <button
                     onClick={() => fetchOverviewData(true)}
                     disabled={overviewLoading}
-                    style={{ padding: isMobile ? '8px 14px' : '10px 18px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? '12.5px' : '13px', whiteSpace: 'nowrap' }}
+                    style={{ padding: '10px 18px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
                   >
                     {overviewLoading ? '수집 중...' : '🔄 전 개소 일괄 갱신'}
                   </button>
                 </div>
               </div>
 
-              {/* 상단 신호등 요약 필터 바 (모바일 2x2 균등 그리드, PC 4열 그리드) */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? '10px' : '16px', marginBottom: isMobile ? '20px' : '28px' }}>
-                <div onClick={() => setOverviewFilter('all')} style={{ backgroundColor: overviewFilter === 'all' ? '#EFF6FF' : theme.surface, padding: isMobile ? '12px 14px' : '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'all' ? theme.primary : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* 상단 신호등 요약 필터 바 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
+                <div onClick={() => setOverviewFilter('all')} style={{ backgroundColor: overviewFilter === 'all' ? '#EFF6FF' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'all' ? theme.primary : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: isMobile ? '12px' : '13px', color: theme.textMuted, fontWeight: 700 }}>{isMobile ? '전체 감시' : '전체 감시 개소'}</div>
-                    <div style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, color: theme.textMain, marginTop: '4px' }}>{overviewItems.length || 24} <span style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 600 }}>개소</span></div>
+                    <div style={{ fontSize: '13px', color: theme.textMuted, fontWeight: 700 }}>전체 감시 개소</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.textMain, marginTop: '4px' }}>{overviewItems.length || 24} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
                   </div>
-                  <span style={{ fontSize: isMobile ? '22px' : '28px' }}>🏢</span>
+                  <span style={{ fontSize: '28px' }}>🏢</span>
                 </div>
 
-                <div onClick={() => setOverviewFilter('danger')} style={{ backgroundColor: overviewFilter === 'danger' ? '#FEF2F2' : theme.surface, padding: isMobile ? '12px 14px' : '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'danger' ? theme.danger : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div onClick={() => setOverviewFilter('danger')} style={{ backgroundColor: overviewFilter === 'danger' ? '#FEF2F2' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'danger' ? theme.danger : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: isMobile ? '12px' : '13px', color: theme.danger, fontWeight: 700 }}>{isMobile ? '🔴 위험 (95%↑)' : '🔴 위험 (피크 95%↑)'}</div>
-                    <div style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, color: theme.danger, marginTop: '4px' }}>{overviewCounts.danger || 0} <span style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 600 }}>개소</span></div>
+                    <div style={{ fontSize: '13px', color: theme.danger, fontWeight: 700 }}>🔴 위험 (피크 95%↑)</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.danger, marginTop: '4px' }}>{overviewCounts.danger || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
                   </div>
-                  <span style={{ fontSize: isMobile ? '22px' : '28px' }}>🚨</span>
+                  <span style={{ fontSize: '28px' }}>🚨</span>
                 </div>
 
-                <div onClick={() => setOverviewFilter('warning')} style={{ backgroundColor: overviewFilter === 'warning' ? '#FFFBEB' : theme.surface, padding: isMobile ? '12px 14px' : '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'warning' ? '#D97706' : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div onClick={() => setOverviewFilter('warning')} style={{ backgroundColor: overviewFilter === 'warning' ? '#FFFBEB' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'warning' ? '#D97706' : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: isMobile ? '12px' : '13px', color: '#D97706', fontWeight: 700 }}>{isMobile ? '🟡 주의 (80%↑)' : '🟡 주의 (피크 80%↑ / 급증)'}</div>
-                    <div style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{overviewCounts.warning || 0} <span style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 600 }}>개소</span></div>
+                    <div style={{ fontSize: '13px', color: '#D97706', fontWeight: 700 }}>🟡 주의 (피크 80%↑ / 급증)</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{overviewCounts.warning || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
                   </div>
-                  <span style={{ fontSize: isMobile ? '22px' : '28px' }}>⚠️</span>
+                  <span style={{ fontSize: '28px' }}>⚠️</span>
                 </div>
 
-                <div onClick={() => setOverviewFilter('normal')} style={{ backgroundColor: overviewFilter === 'normal' ? '#ECFDF5' : theme.surface, padding: isMobile ? '12px 14px' : '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'normal' ? theme.success : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div onClick={() => setOverviewFilter('normal')} style={{ backgroundColor: overviewFilter === 'normal' ? '#ECFDF5' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'normal' ? theme.success : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: isMobile ? '12px' : '13px', color: theme.success, fontWeight: 700 }}>🟢 정상 운영</div>
-                    <div style={{ fontSize: isMobile ? '20px' : '26px', fontWeight: 800, color: theme.success, marginTop: '4px' }}>{overviewCounts.normal || 0} <span style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 600 }}>개소</span></div>
+                    <div style={{ fontSize: '13px', color: theme.success, fontWeight: 700 }}>🟢 정상 운영</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.success, marginTop: '4px' }}>{overviewCounts.normal || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
                   </div>
-                  <span style={{ fontSize: isMobile ? '22px' : '28px' }}>✅</span>
+                  <span style={{ fontSize: '28px' }}>✅</span>
                 </div>
               </div>
 
               {overviewLoading ? (
-                <Card style={{ padding: isMobile ? '50px 16px' : '80px 20px', textAlign: 'center' }}>
-                  <h3 style={{ color: theme.primary, margin: '0 0 8px 0', fontSize: isMobile ? '1.05rem' : '1.25rem' }}>24개 전 개소 한전 LP 데이터를 실시간 분석 중입니다... ⏳</h3>
-                  <p style={{ color: theme.textMuted, margin: 0, fontSize: isMobile ? '0.85rem' : '1rem' }}>최초 호출 시 약 3~5초가 소요되며 이후 캐시에서 즉시 로드됩니다.</p>
+                <Card style={{ padding: '80px 20px', textAlign: 'center' }}>
+                  <h3 style={{ color: theme.primary, margin: '0 0 8px 0' }}>24개 전 개소 한전 LP 데이터를 실시간 분석 중입니다... ⏳</h3>
+                  <p style={{ color: theme.textMuted, margin: 0 }}>최초 호출 시 약 3~5초가 소요되며 이후 캐시에서 즉시 로드됩니다.</p>
                 </Card>
               ) : (
                 ['1호선', '2호선', '3호선', '종합청사'].map((lineGroup) => {
@@ -1530,14 +1553,13 @@ export default function Dashboard() {
                   if (groupItems.length === 0) return null;
 
                   return (
-                    <div key={lineGroup} style={{ marginBottom: isMobile ? '20px' : '28px' }}>
-                      <h3 style={{ fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 800, color: theme.textMain, margin: '0 0 10px 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div key={lineGroup} style={{ marginBottom: '28px' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: theme.textMain, margin: '0 0 12px 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>{lineGroup === '종합청사' ? '🏛️' : '🚆'} {lineGroup}</span>
                         <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>({groupItems.length}개소)</span>
                       </h3>
 
-                      {/* 모바일에서는 1열 와이드 카드로 글자 깨짐 없이 쾌적하게 표시, PC에서는 기존 다열 그리드 */}
-                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: isMobile ? '10px' : '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
                         {groupItems.map((item) => {
                           const isDanger = item.status === 'danger';
                           const isWarning = item.status === 'warning';
@@ -1559,30 +1581,31 @@ export default function Dashboard() {
                               style={{
                                 backgroundColor: theme.surface,
                                 borderRadius: '14px',
-                                padding: isMobile ? '14px 16px' : '18px',
+                                padding: '18px',
                                 border: `2px solid ${borderColor}`,
                                 boxShadow: theme.shadow,
                                 cursor: 'pointer',
                                 transition: 'transform 0.15s ease'
                               }}
                             >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                 <span style={{ fontSize: '1.05rem', fontWeight: 800, color: theme.textMain }}>{item.station}</span>
                                 <span style={{ backgroundColor: badgeBg, color: badgeColor, padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 800 }}>
                                   {statusLabel}
                                 </span>
                               </div>
 
-                              <div style={{ marginBottom: '10px' }}>
+                              {/* 금일 최대수요(Peak) 및 도달률 바 */}
+                              <div style={{ marginBottom: '12px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: theme.textMuted, marginBottom: '4px', fontWeight: 600 }}>
                                   <span>금일 피크 ({item.peak_time})</span>
                                   <span style={{ color: badgeColor, fontWeight: 800 }}>{item.peak_ratio}%</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                  <span style={{ fontSize: '1.3rem', fontWeight: 800, color: theme.textMain }}>
+                                  <span style={{ fontSize: '1.35rem', fontWeight: 800, color: theme.textMain }}>
                                     {Math.round(item.today_peak).toLocaleString()} <span style={{ fontSize: '12px', fontWeight: 600, color: theme.textMuted }}>kW</span>
                                   </span>
-                                  <span style={{ fontSize: '11.5px', color: theme.textMuted }}>
+                                  <span style={{ fontSize: '11px', color: theme.textMuted }}>
                                     {item.is_custom_limit ? '목표' : '기준'}: {Math.round(item.limit_kw).toLocaleString()} kW
                                   </span>
                                 </div>
@@ -1591,10 +1614,11 @@ export default function Dashboard() {
                                 </div>
                               </div>
 
+                              {/* 금일 누적 전력량 및 전일 동시간대 대비 증감률 */}
                               <div style={{ paddingTop: '10px', borderTop: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                                 <div>
                                   <div style={{ color: theme.textMuted, fontWeight: 600 }}>금일 누적 (~{item.last_time})</div>
-                                  <div style={{ color: theme.textMain, fontWeight: 800, fontSize: '13.5px', marginTop: '2px' }}>
+                                  <div style={{ color: theme.textMain, fontWeight: 800, fontSize: '14px', marginTop: '2px' }}>
                                     {Math.round(item.today_kwh).toLocaleString()} kWh
                                   </div>
                                 </div>
@@ -1616,13 +1640,10 @@ export default function Dashboard() {
             </div>
           )}
 
-        </div>
-      </div>
-
       {/* ===================== [관리자 전용] 급전 계통 매핑 모달 ===================== */}
       {showMappingModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-          <div style={{ backgroundColor: '#FFF', padding: isMobile ? '24px 20px' : '32px', borderRadius: '16px', width: isMobile ? '100%' : '400px', maxWidth: '400px', boxShadow: theme.shadow, boxSizing: 'border-box' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '400px', boxShadow: theme.shadow }}>
             <h3 style={{ margin: '0 0 16px 0', color: theme.textMain, fontWeight: 800 }}>⚡ 급전 계통(변전소) 매핑</h3>
             <p style={{ margin: '0 0 24px 0', color: theme.textMuted, fontSize: '14px', lineHeight: 1.5 }}>
               타 부서에서 신고한 해당 설비의 전력 부하를 AI 시스템이 추적할 수 있도록 <b>실제 전력을 공급하는 변전소(수전설비)</b>를 매핑해 주세요.
@@ -1643,8 +1664,12 @@ export default function Dashboard() {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setShowMappingModal(false)} style={{ flex: 1, padding: '12px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>취소</button>
-              <button onClick={submitMapping} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>매핑 및 확인 완료</button>
+              <button onClick={() => setShowMappingModal(false)} style={{ flex: 1, padding: '12px', backgroundColor: '#F1F5F9', color: theme.textMuted, border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                취소
+              </button>
+              <button onClick={submitMapping} style={{ flex: 1, padding: '12px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+                매핑 및 확인 완료
+              </button>
             </div>
           </div>
         </div>
@@ -1652,28 +1677,28 @@ export default function Dashboard() {
 
       {/* ===================== [사용자용] 신규 부하 신고 모달 ===================== */}
       {showNewReportModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-          <div style={{ backgroundColor: '#FFF', padding: isMobile ? '22px 18px' : '32px', borderRadius: '16px', width: isMobile ? '100%' : '500px', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: theme.shadow, boxSizing: 'border-box' }}>
-            <h3 style={{ margin: '0 0 12px 0', color: theme.textMain, fontWeight: 800 }}>📝 설비 부하증감 신고서</h3>
-            <p style={{ margin: '0 0 20px 0', color: theme.textMuted, fontSize: '13.5px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#FFF', padding: '32px', borderRadius: '16px', width: '500px', boxShadow: theme.shadow }}>
+            <h3 style={{ margin: '0 0 16px 0', color: theme.textMain, fontWeight: 800 }}>📝 설비 부하증감 신고서</h3>
+            <p style={{ margin: '0 0 24px 0', color: theme.textMuted, fontSize: '14px' }}>
               전력 예측 시스템에 반영될 역사 내 설비 변동 사항을 입력해 주세요.
             </p>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
+              <div style={{ display: 'flex', gap: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>담당부서</label>
-                  <input type="text" placeholder="예: 건축설비처" value={formDept} onChange={e => setFormDept(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                  <input type="text" placeholder="예: 건축설비처" value={formDept} onChange={e => setFormDept(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>담당자 성명</label>
-                  <input type="text" placeholder="예: 홍길동" value={formName} onChange={e => setFormName(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                  <input type="text" placeholder="예: 홍길동" value={formName} onChange={e => setFormName(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>호선 선택</label>
-                  <select value={formLine} onChange={e => setFormLine(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }}>
+                  <select value={formLine} onChange={e => setFormLine(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }}>
                     <option value="1호선">1호선</option>
                     <option value="2호선">2호선</option>
                     <option value="3호선">3호선</option>
@@ -1682,47 +1707,61 @@ export default function Dashboard() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>설치/철거 역사명</label>
-                  <input type="text" placeholder="예: 반월당" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                  <input type="text" placeholder="직접입력 (예: 반월당)" value={formStation} onChange={e => setFormStation(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>증감 구분</label>
-                  <select value={formType} onChange={e => setFormType(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }}>
+                  <select value={formType} onChange={e => setFormType(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }}>
                     <option value="증설(+)">증설 (+)</option>
                     <option value="철거(-)">철거 (-)</option>
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>적용 예정일</label>
-                  <input type="date" value={formApplyDate} onChange={e => setFormApplyDate(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                  <input type="date" value={formApplyDate} onChange={e => setFormApplyDate(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
                 </div>
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>설비 내용</label>
-                <input type="text" placeholder="예: 3번출구 E/S 2기 신설" value={formDesc} onChange={e => setFormDesc(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                <input type="text" placeholder="예: 3번출구 E/S 2기 신설" value={formDesc} onChange={e => setFormDesc(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>소비 전력 (kW)</label>
-                <input type="number" placeholder="예: 45" value={formKw} onChange={e => setFormKw(e.target.value)} style={{ width: '100%', padding: '11px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: theme.textMuted, marginBottom: '4px' }}>소비 전력 (kW)</label>
+                  <input type="number" placeholder="예: 45" value={formKw} onChange={e => setFormKw(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}`, boxSizing: 'border-box' }} />
+                </div>
               </div>
 
-              <div style={{ padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: theme.textMain, marginBottom: '10px' }}>일일 가동 시간 설정</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input type="time" value={formStartTime} onChange={e => setFormStartTime(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.border}` }} />
+              <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: theme.textMain, marginBottom: '12px' }}>일일 가동 시간 설정</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input type="time" value={formStartTime} onChange={e => setFormStartTime(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: `1px solid ${theme.border}` }} />
                   <span style={{ fontWeight: 'bold', color: theme.textMuted }}>~</span>
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: `1px solid ${theme.border}`, borderRadius: '6px', backgroundColor: '#FFF', overflow: 'hidden' }}>
-                    <input type="time" value={formEndTime === '24:00' ? '' : formEndTime} onChange={e => setFormEndTime(e.target.value)} style={{ flex: 1, padding: '8px', border: 'none', outline: 'none', minWidth: 0 }} />
-                    <button type="button" onClick={() => setFormEndTime('24:00')} style={{ padding: '8px 10px', backgroundColor: formEndTime === '24:00' ? theme.primary : '#E2E8F0', color: formEndTime === '24:00' ? '#FFF' : theme.textMain, border: 'none', borderLeft: `1px solid ${theme.border}`, cursor: 'pointer', fontSize: '11.5px', fontWeight: 700 }}>24:00</button>
+                    <input 
+                      type="time" 
+                      value={formEndTime === '24:00' ? '' : formEndTime} 
+                      onChange={e => setFormEndTime(e.target.value)} 
+                      style={{ flex: 1, padding: '10px', border: 'none', outline: 'none' }} 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setFormEndTime('24:00')} 
+                      style={{ padding: '0 12px', backgroundColor: formEndTime === '24:00' ? theme.primary : '#E2E8F0', color: formEndTime === '24:00' ? '#FFF' : theme.textMain, border: 'none', borderLeft: `1px solid ${theme.border}`, cursor: 'pointer', height: '100%', fontSize: '12px', fontWeight: 700 }}
+                    >
+                      24:00
+                    </button>
                   </div>
                 </div>
-                <div style={{ marginTop: '10px', textAlign: 'right', fontSize: '13.5px', fontWeight: 700, color: theme.primary }}>
+                <div style={{ marginTop: '12px', textAlign: 'right', fontSize: '14px', fontWeight: 700, color: theme.primary }}>
                   {formCalculatedHours} 시간/일
                 </div>
               </div>
+
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
