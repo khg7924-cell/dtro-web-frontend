@@ -1036,8 +1036,8 @@ export default function Dashboard() {
                       ※ 2023년부터 데이터 조회가 가능합니다.
                     </div>
                   </div>
-                  <button onClick={fetchCompareData} style={{ padding: '10px 20px', backgroundColor: theme.secondary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>비교 분석 실행</button>
-                  <button onClick={handleExportCompareExcel} style={{ padding: '10px 20px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', display: 'flex', gap: '6px' }}>📊 다운로드</button>
+                  <button onClick={fetchCompareData} style={{ padding: '10px 16px', backgroundColor: theme.secondary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px', whiteSpace: 'nowrap' }}>분석 실행</button>
+                  <button onClick={handleExportCompareExcel} style={{ padding: '10px 16px', backgroundColor: theme.surface, color: theme.textMain, border: `1px solid ${theme.border}`, borderRadius: '10px', fontWeight: 600, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>📊 다운로드</button>
                 </div>
               </div>
 
@@ -1486,7 +1486,7 @@ export default function Dashboard() {
                 <div>
                   <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>🚦 실시간 종합 관제 상황판</h2>
                   <p style={{ margin: 0, color: theme.textMuted, fontSize: '0.95rem' }}>
-                    금일 피크 도달률 및 전일 동시간대 대비 부하 증감 현황입니다. (카드 클릭 시 해당 역사 금일 실시간 화면으로 이동)
+                    금일 피크 및 전일 동시간 대비 부하 증감 현황입니다. (카드 클릭 시 해당 역사 실시간 화면으로 이동)
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
