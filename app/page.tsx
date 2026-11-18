@@ -118,13 +118,15 @@ export default function LoginPage() {
       flexDirection: isMobile ? 'column' : 'row',
       height: isMobile ? 'auto' : '100vh', 
       minHeight: '100vh',
-      width: isMobile ? '100%' : '100vw', 
+      width: '100%',
+      maxWidth: '100vw',
       fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', 
       backgroundColor: '#F8FAFC',
+      overflowX: 'hidden',
       overflowY: isMobile ? 'auto' : 'hidden'
     }}>
       
-      {/* 왼쪽(모바일은 상단): 브랜드 및 안내 영역 */}
+      {/* 왼쪽(모바일은 상단 슬림 헤더): 브랜드 및 안내 영역 */}
       <div style={{ 
         flex: isMobile ? 'none' : 1, 
         backgroundColor: '#0F172A', 
@@ -132,32 +134,35 @@ export default function LoginPage() {
         display: 'flex', 
         flexDirection: 'column', 
         justifyContent: 'center', 
-        padding: isMobile ? '32px 24px' : '60px', 
+        padding: isMobile ? '24px 20px' : '60px', 
         position: 'relative', 
         overflow: 'hidden' 
       }}>
         <div style={{ position: 'relative', zIndex: 2 }}>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '10px' : '18px', marginBottom: isMobile ? '20px' : '48px' }}>
-            <h1 style={{ margin: 0, fontSize: isMobile ? '2rem' : '3.8rem', fontFamily: 'sans-serif', letterSpacing: '-1.5px', lineHeight: 1.15 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '6px' : '18px', marginBottom: isMobile ? '10px' : '48px' }}>
+            <h1 style={{ margin: 0, fontSize: isMobile ? '1.45rem' : '3.8rem', fontFamily: 'sans-serif', letterSpacing: isMobile ? '-0.5px' : '-1.5px', lineHeight: 1.2 }}>
               <span style={{ fontWeight: 900, color: '#0F62FE' }}>DTRO</span>
               <span style={{ fontWeight: 300, color: '#FFFFFF' }}> 스마트 에너지 관리 시스템</span>
             </h1>
-            <div style={{ fontSize: isMobile ? '0.95rem' : '1.4rem', color: '#94A3B8', fontWeight: 600, letterSpacing: '0.5px' }}>
-              <span style={{ fontWeight: 800, letterSpacing: '2px' }}>SEMS</span> 
-              <span style={{ color: '#475569', fontWeight: 400, marginLeft: '10px' }}>| Smart Energy Management System</span>
+            <div style={{ fontSize: isMobile ? '0.8rem' : '1.4rem', color: '#94A3B8', fontWeight: 600, letterSpacing: '0.5px' }}>
+              <span style={{ fontWeight: 800, letterSpacing: '1.5px' }}>SEMS</span> 
+              <span style={{ color: '#475569', fontWeight: 400, marginLeft: '8px' }}>| Smart Energy Management System</span>
             </div>
           </div>
 
-          <p style={{ fontSize: isMobile ? '0.95rem' : '1.25rem', color: '#94A3B8', margin: isMobile ? '0 0 20px 0' : '0 0 40px 0', lineHeight: 1.6 }}>
-            대구교통공사 빅데이터 통합 관제 플랫폼<br />
-            기상, 대기질, 전력 데이터를 AI로 정밀 분석합니다.
+          <p style={{ fontSize: isMobile ? '0.82rem' : '1.25rem', color: '#94A3B8', margin: isMobile ? '0' : '0 0 40px 0', lineHeight: 1.5 }}>
+            대구교통공사 빅데이터 통합 관제 플랫폼 {!isMobile && <br />}
+            {!isMobile && '기상, 대기질, 전력 데이터를 AI로 정밀 분석합니다.'}
           </p>
-          <div style={{ display: 'flex', gap: isMobile ? '8px' : '12px', flexWrap: 'wrap' }}>
-            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: isMobile ? '6px 12px' : '8px 16px', borderRadius: '24px', fontSize: isMobile ? '0.8rem' : '0.9rem', fontWeight: 600 }}>⚡ 실시간 전력 분석</span>
-            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: isMobile ? '6px 12px' : '8px 16px', borderRadius: '24px', fontSize: isMobile ? '0.8rem' : '0.9rem', fontWeight: 600 }}>🌤️ 기상청/대기질 연동</span>
-            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: isMobile ? '6px 12px' : '8px 16px', borderRadius: '24px', fontSize: isMobile ? '0.8rem' : '0.9rem', fontWeight: 600 }}>🤖 AI 전력 수요 예측</span>
-          </div>
+
+          {!isMobile && (
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>⚡ 실시간 전력 분석</span>
+              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>🌤️ 기상청/대기질 연동</span>
+              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>🤖 AI 전력 수요 예측</span>
+            </div>
+          )}
         </div>
         
         {/* 장식용 배경 원 */}
@@ -172,12 +177,13 @@ export default function LoginPage() {
         alignItems: isMobile ? 'flex-start' : 'center', 
         justifyContent: 'center', 
         backgroundColor: '#F8FAFC',
-        padding: isMobile ? '24px 16px 40px 16px' : '0'
+        padding: isMobile ? '20px 16px 32px 16px' : '0',
+        boxSizing: 'border-box'
       }}>
         <div style={{ 
           backgroundColor: '#FFFFFF', 
-          padding: isMobile ? '28px 24px' : '48px', 
-          borderRadius: isMobile ? '20px' : '24px', 
+          padding: isMobile ? '24px 20px' : '48px', 
+          borderRadius: isMobile ? '18px' : '24px', 
           boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)', 
           width: '100%', 
           maxWidth: '440px', 
@@ -185,76 +191,76 @@ export default function LoginPage() {
           boxSizing: 'border-box'
         }}>
           
-          <h2 style={{ margin: '0 0 8px 0', color: '#111827', fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 800 }}>
+          <h2 style={{ margin: '0 0 6px 0', color: '#111827', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>
             {isLoginMode ? '계정 로그인' : '계정 등록 신청'}
           </h2>
-          <p style={{ margin: isMobile ? '0 0 24px 0' : '0 0 32px 0', color: '#64748B', fontSize: isMobile ? '0.9rem' : '0.95rem' }}>
+          <p style={{ margin: isMobile ? '0 0 20px 0' : '0 0 32px 0', color: '#64748B', fontSize: isMobile ? '0.85rem' : '0.95rem' }}>
             {isLoginMode 
               ? '접근 권한이 있는 계정을 입력해 주세요.' 
               : '가입 신청 후 관리자의 승인이 완료되어야 로그인이 가능합니다.'}
           </p>
           
-          <form onSubmit={isLoginMode ? handleLogin : handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '16px' : '20px' }}>
+          <form onSubmit={isLoginMode ? handleLogin : handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '14px' : '20px' }}>
             
             {!isLoginMode && (
               <>
                 <div>
-                  <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>소속</label>
+                  <label style={{ display: 'block', margin: '0 0 6px 0', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>소속</label>
                   <input 
                     type="text" 
                     value={department} 
                     onChange={(e) => setDepartment(e.target.value)} 
                     placeholder="예 : 전기관리팀"
-                    style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>이름</label>
+                  <label style={{ display: 'block', margin: '0 0 6px 0', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>이름</label>
                   <input 
                     type="text" 
                     value={userName} 
                     onChange={(e) => setUserName(e.target.value)} 
                     placeholder="이름 입력"
-                    style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
                   />
                 </div>
               </>
             )}
 
             <div>
-              <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>아이디</label>
+              <label style={{ display: 'block', margin: '0 0 6px 0', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>아이디</label>
               <input 
                 type="text" 
                 value={userId} 
                 onChange={(e) => setUserId(e.target.value)} 
                 placeholder={isLoginMode ? "아이디 입력" : "사용할 아이디 입력"}
-                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
               />
             </div>
             
             <div>
-              <label style={{ display: 'block', margin: '0 0 8px 0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>비밀번호</label>
+              <label style={{ display: 'block', margin: '0 0 6px 0', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>비밀번호</label>
               <input 
                 type="password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 placeholder="비밀번호 입력"
-                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '1rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
               />
             </div>
             
             <button 
               type="submit" 
-              style={{ width: '100%', padding: '16px', marginTop: '12px', backgroundColor: isLoginMode ? '#0F62FE' : '#8A3FFC', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}
+              style={{ width: '100%', padding: isMobile ? '14px' : '16px', marginTop: '8px', backgroundColor: isLoginMode ? '#0F62FE' : '#8A3FFC', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}
             >
               {isLoginMode ? '로그인' : '계정 등록 신청'}
             </button>
           </form>
           
-          <div style={{ marginTop: isMobile ? '24px' : '32px', textAlign: 'center' }}>
+          <div style={{ marginTop: isMobile ? '20px' : '32px', textAlign: 'center' }}>
             {isLoginMode ? (
-              <p style={{ margin: 0, color: '#64748B', fontSize: '0.9rem' }}>
+              <p style={{ margin: 0, color: '#64748B', fontSize: '0.85rem' }}>
                 계정이 없으신가요?{' '}
                 <span 
                   onClick={() => setIsLoginMode(false)}
@@ -264,7 +270,7 @@ export default function LoginPage() {
                 </span>
               </p>
             ) : (
-              <p style={{ margin: 0, color: '#64748B', fontSize: '0.9rem' }}>
+              <p style={{ margin: 0, color: '#64748B', fontSize: '0.85rem' }}>
                 이미 승인된 계정이 있으신가요?{' '}
                 <span 
                   onClick={() => setIsLoginMode(true)}
