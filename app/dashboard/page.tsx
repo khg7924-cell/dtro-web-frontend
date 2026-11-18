@@ -432,8 +432,11 @@ export default function Dashboard() {
 
   const handleExportBillExcel = () => {
     if (billRecords.length === 0) { alert("다운로드할 요금 데이터가 없습니다."); return; }
-    let csvContent = "\uFEFF청구년월,정기검침일,요금적용전력(kW),기본요금(원),전력량요금(원),할인공제계(원),전기요금계(원),청구요금(원),경부하사용량(kWh),경부하당월지침,중부하사용량(kWh),중부하당월지침,최대부하사용량(kWh),최대부하당월지침,지상역률(%),진상역률(%)\n";
-    billRecords.forEach(row => { csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.lload_needle},${row.mload_usekwh},${row.mload_needle},${row.maxload_usekwh},${row.maxload_needle},${row.ji_pwrfact},${row.jn_pwrfact}\n`; });
+    let csvContent = "\uFEFF청구년월,정기검침일,요금적용전력(kW),기본요금(원),전력량요금(원),할인공제계(원),전기요금계(원),청구요금(원),경부하사용량(kWh),경부하당월지침,중부하사용량(kWh),중부하당월지침,최대부하사용량(kWh),최대부하당월지침,전력사용량(kWh),지상역률(%),진상역률(%)\n";
+    billRecords.forEach(row => {
+      const totalUseKwh = Number(row.lload_usekwh || 0) + Number(row.mload_usekwh || 0) + Number(row.maxload_usekwh || 0);
+      csvContent += `${row.bill_ym},${row.mr_ymd},${row.bill_aply_pwr},${row.base_bill},${row.kwh_bill},${row.dc_bill},${row.req_bill},${row.req_amt},${row.lload_usekwh},${row.lload_needle},${row.mload_usekwh},${row.mload_needle},${row.maxload_usekwh},${row.maxload_needle},${totalUseKwh},${row.ji_pwrfact},${row.jn_pwrfact}\n`;
+    });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `${station}_${billYear}년_청구내역.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
@@ -1327,15 +1330,16 @@ export default function Dashboard() {
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(중)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>최대부하(kWh)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, color: theme.secondary }}>당월지침(최대)</th>
+                        <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}`, backgroundColor: '#EFF6FF', color: theme.primary }}>전력사용량(kWh)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}`, borderLeft: `1px solid ${theme.border}` }}>지상역률(%)</th>
                         <th style={{ padding: '16px 12px', fontWeight: 600, borderBottom: `1px solid ${theme.border}` }}>진상역률(%)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {billLoading ? (
-                        <tr><td colSpan={16} style={{ padding: '60px', color: theme.success, fontWeight: 700, fontSize: '15px' }}>한전 서버에서 청구 데이터를 수집 중입니다... ⏳</td></tr>
+                        <tr><td colSpan={17} style={{ padding: '60px', color: theme.success, fontWeight: 700, fontSize: '15px' }}>한전 서버에서 청구 데이터를 수집 중입니다... ⏳</td></tr>
                       ) : billRecords.length === 0 ? (
-                        <tr><td colSpan={16} style={{ padding: '60px', color: theme.textMuted }}>조회된 전기요금 청구 내역이 없습니다. (조회 연도와 대상 개소를 확인해주세요)</td></tr>
+                        <tr><td colSpan={17} style={{ padding: '60px', color: theme.textMuted }}>조회된 전기요금 청구 내역이 없습니다. (조회 연도와 대상 개소를 확인해주세요)</td></tr>
                       ) : (
                         billRecords.map((row: any, idx: number) => (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: '#FFF' }}>
@@ -1353,6 +1357,7 @@ export default function Dashboard() {
                             <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.mload_needle || 0).toLocaleString()}</td>
                             <td style={{ padding: '12px', color: theme.textMuted, borderLeft: `1px solid ${theme.border}` }}>{Number(row.maxload_usekwh || 0).toLocaleString()}</td>
                             <td style={{ padding: '12px', color: theme.textMain, fontWeight: 600 }}>{Number(row.maxload_needle || 0).toLocaleString()}</td>
+                            <td style={{ padding: '12px', fontWeight: 800, color: theme.primary, backgroundColor: '#FAFAFA', borderLeft: `1px solid ${theme.border}` }}>{(Number(row.lload_usekwh || 0) + Number(row.mload_usekwh || 0) + Number(row.maxload_usekwh || 0)).toLocaleString()}</td>
                             <td style={{ padding: '12px', borderLeft: `1px solid ${theme.border}` }}>{row.ji_pwrfact}</td>
                             <td style={{ padding: '12px' }}>{row.jn_pwrfact}</td>
                           </tr>
