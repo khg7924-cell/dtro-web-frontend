@@ -155,6 +155,13 @@ export default function Dashboard() {
   const [billLoading, setBillLoading] = useState(false);
   const [billCustNo, setBillCustNo] = useState('');
 
+  // 🌟 [추가] 24개 전 개소 종합 관제 상황판 상태 변수
+  const [overviewItems, setOverviewItems] = useState<any[]>([]);
+  const [overviewCounts, setOverviewCounts] = useState<any>({ danger: 0, warning: 0, normal: 0 });
+  const [overviewUpdatedAt, setOverviewUpdatedAt] = useState('');
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewFilter, setOverviewFilter] = useState('all');
+
   const [showNewReportModal, setShowNewReportModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -309,10 +316,11 @@ export default function Dashboard() {
     }
   };
 
-  const fetchDashboardData = async (bypass = false) => {
+  const fetchDashboardData = async (bypass = false, targetSt?: string) => {
+    const stName = targetSt || station;
     setLoading(true); setCurrentPage(1); 
     try {
-      const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(station)}?start=${startDate}&end=${endDate}&bypass=${bypass}`);
+      const response = await fetch(`${API_URL}/api/dashboard/${encodeURIComponent(stName)}?start=${startDate}&end=${endDate}&bypass=${bypass}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setLoading(false); return; }
 
@@ -324,20 +332,38 @@ export default function Dashboard() {
       setMappedLocation(result.mapped_location || '대구 전체');
       setSummary(result.summary || {});
 
-      // 🌟 기간이 1개월을 넘더라도 월 단위로 묶지 않고 항상 일별(MM-DD) 데이터 유지
       setChartData(records.map((r: any) => ({ ...r, date: r.date.substring(5) })));
       setExpandedRows({});
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
-  const fetchRealtimeData = async () => {
+  const fetchRealtimeData = async (targetSt?: string) => {
+    const stName = targetSt || station;
     setRealtimeLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/realtime/${encodeURIComponent(station)}`);
+      const response = await fetch(`${API_URL}/api/realtime/${encodeURIComponent(stName)}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setRealtimeLoading(false); return; }
       setRealtimeData(result.records || []);
     } catch (err) { console.error(err); } finally { setRealtimeLoading(false); }
+  };
+
+  // 🌟 [추가] 24개 전 개소 종합 관제 데이터 호출 함수
+  const fetchOverviewData = async (bypass = false) => {
+    setOverviewLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/overview?bypass=${bypass}`);
+      const result = await response.json();
+      if (result.items) {
+        setOverviewItems(result.items);
+        setOverviewCounts(result.counts || { danger: 0, warning: 0, normal: 0 });
+        setOverviewUpdatedAt(result.updated_at || '');
+      }
+    } catch (err) {
+      console.error("종합 관제 데이터 조회 실패", err);
+    } finally {
+      setOverviewLoading(false);
+    }
   };
 
   const fetchCompareData = async () => {
@@ -569,6 +595,7 @@ export default function Dashboard() {
           </h1>
 
           <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => { setMainTab('overview'); fetchOverviewData(false); }} style={{ padding: '8px 16px', backgroundColor: mainTab === 'overview' ? 'rgba(16, 185, 129, 0.2)' : 'transparent', color: mainTab === 'overview' ? '#10B981' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🚦 종합 관제</button>
             <button onClick={() => setMainTab('dashboard')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'dashboard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'dashboard' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>⚡ 통합 대시보드</button>
             <button onClick={() => setMainTab('compare')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'compare' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'compare' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>📊 연도별 비교</button>
             <button onClick={() => setMainTab('predict')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'predict' ? 'rgba(232, 62, 140, 0.15)' : 'transparent', color: mainTab === 'predict' ? theme.ai : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🤖 AI 수요 예측</button>
@@ -592,7 +619,7 @@ export default function Dashboard() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {mainTab !== 'report' && (
+        {mainTab !== 'report' && mainTab !== 'overview' && (
           <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1435,6 +1462,326 @@ export default function Dashboard() {
         </div>
       </div>
 
+{/* ===================== [6. 24개 전 개소 종합 관제 상황판 탭] ===================== */}
+          {mainTab === 'overview' && (
+            <div style={{ maxWidth: '1450px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
+                <div>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>🚦 24개 전 개소 실시간 종합 관제 상황판</h2>
+                  <p style={{ margin: 0, color: theme.textMuted, fontSize: '0.95rem' }}>
+                    전 노선 수전설비의 금일 피크 도달률 및 전일 동시간대 대비 부하 증감 현황입니다. (카드 클릭 시 해당 역사 실시간 제어 화면으로 이동)
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {overviewUpdatedAt && (
+                    <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>
+                      ⏱ 갱신: {overviewUpdatedAt}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => fetchOverviewData(true)}
+                    disabled={overviewLoading}
+                    style={{ padding: '10px 18px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    {overviewLoading ? '수집 중...' : '🔄 전 개소 일괄 갱신'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 상단 신호등 요약 필터 바 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
+                <div onClick={() => setOverviewFilter('all')} style={{ backgroundColor: overviewFilter === 'all' ? '#EFF6FF' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'all' ? theme.primary : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: theme.textMuted, fontWeight: 700 }}>전체 감시 개소</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.textMain, marginTop: '4px' }}>{overviewItems.length || 24} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>🏢</span>
+                </div>
+
+                <div onClick={() => setOverviewFilter('danger')} style={{ backgroundColor: overviewFilter === 'danger' ? '#FEF2F2' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'danger' ? theme.danger : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: theme.danger, fontWeight: 700 }}>🔴 위험 (피크 95%↑)</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.danger, marginTop: '4px' }}>{overviewCounts.danger || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>🚨</span>
+                </div>
+
+                <div onClick={() => setOverviewFilter('warning')} style={{ backgroundColor: overviewFilter === 'warning' ? '#FFFBEB' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'warning' ? '#D97706' : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#D97706', fontWeight: 700 }}>🟡 주의 (피크 80%↑ / 급증)</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{overviewCounts.warning || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>⚠️</span>
+                </div>
+
+                <div onClick={() => setOverviewFilter('normal')} style={{ backgroundColor: overviewFilter === 'normal' ? '#ECFDF5' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'normal' ? theme.success : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: theme.success, fontWeight: 700 }}>🟢 정상 운영</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.success, marginTop: '4px' }}>{overviewCounts.normal || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>✅</span>
+                </div>
+              </div>
+
+              {overviewLoading ? (
+                <Card style={{ padding: '80px 20px', textAlign: 'center' }}>
+                  <h3 style={{ color: theme.primary, margin: '0 0 8px 0' }}>24개 전 개소 한전 LP 데이터를 실시간 분석 중입니다... ⏳</h3>
+                  <p style={{ color: theme.textMuted, margin: 0 }}>최초 호출 시 약 3~5초가 소요되며 이후 캐시에서 즉시 로드됩니다.</p>
+                </Card>
+              ) : (
+                ['1호선', '2호선', '3호선', '종합청사'].map((lineGroup) => {
+                  const groupItems = overviewItems.filter(
+                    (it) => it.line === lineGroup && (overviewFilter === 'all' || it.status === overviewFilter)
+                  );
+                  if (groupItems.length === 0) return null;
+
+                  return (
+                    <div key={lineGroup} style={{ marginBottom: '28px' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: theme.textMain, margin: '0 0 12px 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{lineGroup === '종합청사' ? '🏛️' : '🚆'} {lineGroup}</span>
+                        <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>({groupItems.length}개소)</span>
+                      </h3>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                        {groupItems.map((item) => {
+                          const isDanger = item.status === 'danger';
+                          const isWarning = item.status === 'warning';
+                          const badgeBg = isDanger ? '#FEF2F2' : isWarning ? '#FFFBEB' : '#ECFDF5';
+                          const badgeColor = isDanger ? theme.danger : isWarning ? '#D97706' : theme.success;
+                          const borderColor = isDanger ? '#FCA5A5' : isWarning ? '#FDE68A' : theme.border;
+                          const statusLabel = isDanger ? '🔴 위험' : isWarning ? '🟡 주의' : '🟢 정상';
+
+                          return (
+                            <div
+                              key={item.station}
+                              onClick={() => {
+                                setStation(item.station);
+                                setMainTab('dashboard');
+                                setChartMode('realtime');
+                                fetchDashboardData(false, item.station);
+                                fetchRealtimeData(item.station);
+                              }}
+                              style={{
+                                backgroundColor: theme.surface,
+                                borderRadius: '14px',
+                                padding: '18px',
+                                border: `2px solid ${borderColor}`,
+                                boxShadow: theme.shadow,
+                                cursor: 'pointer',
+                                transition: 'transform 0.15s ease'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: theme.textMain }}>{item.station}</span>
+                                <span style={{ backgroundColor: badgeBg, color: badgeColor, padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 800 }}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+
+                              {/* 금일 최대수요(Peak) 및 도달률 바 */}
+                              <div style={{ marginBottom: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: theme.textMuted, marginBottom: '4px', fontWeight: 600 }}>
+                                  <span>금일 피크 ({item.peak_time})</span>
+                                  <span style={{ color: badgeColor, fontWeight: 800 }}>{item.peak_ratio}%</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                  <span style={{ fontSize: '1.35rem', fontWeight: 800, color: theme.textMain }}>
+                                    {Math.round(item.today_peak).toLocaleString()} <span style={{ fontSize: '12px', fontWeight: 600, color: theme.textMuted }}>kW</span>
+                                  </span>
+                                  <span style={{ fontSize: '11px', color: theme.textMuted }}>
+                                    {item.is_custom_limit ? '목표' : '기준'}: {Math.round(item.limit_kw).toLocaleString()} kW
+                                  </span>
+                                </div>
+                                <div style={{ width: '100%', height: '7px', backgroundColor: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${Math.min(item.peak_ratio, 100)}%`, height: '100%', backgroundColor: badgeColor, borderRadius: '4px' }} />
+                                </div>
+                              </div>
+
+                              {/* 금일 누적 전력량 및 전일 동시간대 대비 증감률 */}
+                              <div style={{ paddingTop: '10px', borderTop: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                                <div>
+                                  <div style={{ color: theme.textMuted, fontWeight: 600 }}>금일 누적 (~{item.last_time})</div>
+                                  <div style={{ color: theme.textMain, fontWeight: 800, fontSize: '14px', marginTop: '2px' }}>
+                                    {Math.round(item.today_kwh).toLocaleString()} kWh
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <div style={{ color: theme.textMuted, fontWeight: 600 }}>전일 동시간 대비</div>
+                                  <div style={{ color: item.dod_pct > 0 ? theme.danger : theme.success, fontWeight: 800, fontSize: '13px', marginTop: '2px' }}>
+                                    {item.dod_pct > 0 ? `+${item.dod_pct}% ▲` : `${item.dod_pct}% ▼`}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+          {/* ===================== [6. 24개 전 개소 종합 관제 상황판 탭] ===================== */}
+          {mainTab === 'overview' && (
+            <div style={{ maxWidth: '1450px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
+                <div>
+                  <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>🚦 24개 전 개소 실시간 종합 관제 상황판</h2>
+                  <p style={{ margin: 0, color: theme.textMuted, fontSize: '0.95rem' }}>
+                    전 노선 수전설비의 금일 피크 도달률 및 전일 동시간대 대비 부하 증감 현황입니다. (카드 클릭 시 해당 역사 실시간 제어 화면으로 이동)
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {overviewUpdatedAt && (
+                    <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>
+                      ⏱ 갱신: {overviewUpdatedAt}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => fetchOverviewData(true)}
+                    disabled={overviewLoading}
+                    style={{ padding: '10px 18px', backgroundColor: theme.primary, color: '#FFF', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    {overviewLoading ? '수집 중...' : '🔄 전 개소 일괄 갱신'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 상단 신호등 요약 필터 바 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '28px' }}>
+                <div onClick={() => setOverviewFilter('all')} style={{ backgroundColor: overviewFilter === 'all' ? '#EFF6FF' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'all' ? theme.primary : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: theme.textMuted, fontWeight: 700 }}>전체 감시 개소</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.textMain, marginTop: '4px' }}>{overviewItems.length || 24} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>🏢</span>
+                </div>
+
+                <div onClick={() => setOverviewFilter('danger')} style={{ backgroundColor: overviewFilter === 'danger' ? '#FEF2F2' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'danger' ? theme.danger : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: theme.danger, fontWeight: 700 }}>🔴 위험 (피크 95%↑)</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.danger, marginTop: '4px' }}>{overviewCounts.danger || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>🚨</span>
+                </div>
+
+                <div onClick={() => setOverviewFilter('warning')} style={{ backgroundColor: overviewFilter === 'warning' ? '#FFFBEB' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'warning' ? '#D97706' : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#D97706', fontWeight: 700 }}>🟡 주의 (피크 80%↑ / 급증)</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{overviewCounts.warning || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>⚠️</span>
+                </div>
+
+                <div onClick={() => setOverviewFilter('normal')} style={{ backgroundColor: overviewFilter === 'normal' ? '#ECFDF5' : theme.surface, padding: '18px 24px', borderRadius: '14px', border: `2px solid ${overviewFilter === 'normal' ? theme.success : theme.border}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: theme.success, fontWeight: 700 }}>🟢 정상 운영</div>
+                    <div style={{ fontSize: '26px', fontWeight: 800, color: theme.success, marginTop: '4px' }}>{overviewCounts.normal || 0} <span style={{ fontSize: '14px', fontWeight: 600 }}>개소</span></div>
+                  </div>
+                  <span style={{ fontSize: '28px' }}>✅</span>
+                </div>
+              </div>
+
+              {overviewLoading ? (
+                <Card style={{ padding: '80px 20px', textAlign: 'center' }}>
+                  <h3 style={{ color: theme.primary, margin: '0 0 8px 0' }}>24개 전 개소 한전 LP 데이터를 실시간 분석 중입니다... ⏳</h3>
+                  <p style={{ color: theme.textMuted, margin: 0 }}>최초 호출 시 약 3~5초가 소요되며 이후 캐시에서 즉시 로드됩니다.</p>
+                </Card>
+              ) : (
+                ['1호선', '2호선', '3호선', '종합청사'].map((lineGroup) => {
+                  const groupItems = overviewItems.filter(
+                    (it) => it.line === lineGroup && (overviewFilter === 'all' || it.status === overviewFilter)
+                  );
+                  if (groupItems.length === 0) return null;
+
+                  return (
+                    <div key={lineGroup} style={{ marginBottom: '28px' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: theme.textMain, margin: '0 0 12px 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{lineGroup === '종합청사' ? '🏛️' : '🚆'} {lineGroup}</span>
+                        <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>({groupItems.length}개소)</span>
+                      </h3>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                        {groupItems.map((item) => {
+                          const isDanger = item.status === 'danger';
+                          const isWarning = item.status === 'warning';
+                          const badgeBg = isDanger ? '#FEF2F2' : isWarning ? '#FFFBEB' : '#ECFDF5';
+                          const badgeColor = isDanger ? theme.danger : isWarning ? '#D97706' : theme.success;
+                          const borderColor = isDanger ? '#FCA5A5' : isWarning ? '#FDE68A' : theme.border;
+                          const statusLabel = isDanger ? '🔴 위험' : isWarning ? '🟡 주의' : '🟢 정상';
+
+                          return (
+                            <div
+                              key={item.station}
+                              onClick={() => {
+                                setStation(item.station);
+                                setMainTab('dashboard');
+                                setChartMode('realtime');
+                                fetchDashboardData(false, item.station);
+                                fetchRealtimeData(item.station);
+                              }}
+                              style={{
+                                backgroundColor: theme.surface,
+                                borderRadius: '14px',
+                                padding: '18px',
+                                border: `2px solid ${borderColor}`,
+                                boxShadow: theme.shadow,
+                                cursor: 'pointer',
+                                transition: 'transform 0.15s ease'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: theme.textMain }}>{item.station}</span>
+                                <span style={{ backgroundColor: badgeBg, color: badgeColor, padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 800 }}>
+                                  {statusLabel}
+                                </span>
+                              </div>
+
+                              {/* 금일 최대수요(Peak) 및 도달률 바 */}
+                              <div style={{ marginBottom: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: theme.textMuted, marginBottom: '4px', fontWeight: 600 }}>
+                                  <span>금일 피크 ({item.peak_time})</span>
+                                  <span style={{ color: badgeColor, fontWeight: 800 }}>{item.peak_ratio}%</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                  <span style={{ fontSize: '1.35rem', fontWeight: 800, color: theme.textMain }}>
+                                    {Math.round(item.today_peak).toLocaleString()} <span style={{ fontSize: '12px', fontWeight: 600, color: theme.textMuted }}>kW</span>
+                                  </span>
+                                  <span style={{ fontSize: '11px', color: theme.textMuted }}>
+                                    {item.is_custom_limit ? '목표' : '기준'}: {Math.round(item.limit_kw).toLocaleString()} kW
+                                  </span>
+                                </div>
+                                <div style={{ width: '100%', height: '7px', backgroundColor: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${Math.min(item.peak_ratio, 100)}%`, height: '100%', backgroundColor: badgeColor, borderRadius: '4px' }} />
+                                </div>
+                              </div>
+
+                              {/* 금일 누적 전력량 및 전일 동시간대 대비 증감률 */}
+                              <div style={{ paddingTop: '10px', borderTop: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                                <div>
+                                  <div style={{ color: theme.textMuted, fontWeight: 600 }}>금일 누적 (~{item.last_time})</div>
+                                  <div style={{ color: theme.textMain, fontWeight: 800, fontSize: '14px', marginTop: '2px' }}>
+                                    {Math.round(item.today_kwh).toLocaleString()} kWh
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <div style={{ color: theme.textMuted, fontWeight: 600 }}>전일 동시간 대비</div>
+                                  <div style={{ color: item.dod_pct > 0 ? theme.danger : theme.success, fontWeight: 800, fontSize: '13px', marginTop: '2px' }}>
+                                    {item.dod_pct > 0 ? `+${item.dod_pct}% ▲` : `${item.dod_pct}% ▼`}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
       {/* ===================== [관리자 전용] 급전 계통 매핑 모달 ===================== */}
       {showMappingModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
