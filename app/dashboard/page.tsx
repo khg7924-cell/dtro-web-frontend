@@ -971,7 +971,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
                 <div>
                   <h2 style={{ color: theme.textMain, margin: '0 0 8px 0', fontSize: '1.8rem', fontWeight: 800 }}>{station} 연도별 전력 비교</h2>
-                  <p style={{ margin: 0, color: theme.textMuted }}>동일 개소의 과거와 현재 전력 사용량 및 요금을 분석합니다.</p>
+                  <p style={{ margin: 0, color: theme.textMuted }}>과거와 현재 전력 사용량 및 요금을 분석합니다.</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   
