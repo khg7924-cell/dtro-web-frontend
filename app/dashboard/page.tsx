@@ -978,7 +978,7 @@ export default function Dashboard() {
                     )
                   )}
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.surface, padding: '6px 16px', borderRadius: '12px', border: `1px solid ${theme.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.surface, padding: '6px 16px', borderRadius: '12px', border: `1px solid ${theme.border}`, position: 'relative' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>기준연도</span>
                       <input type="text" value={baseYear} onChange={(e) => setBaseYear(e.target.value)} style={{ width: '48px', padding: '4px', border: 'none', backgroundColor: '#F1F5F9', borderRadius: '6px', textAlign: 'center', fontWeight: 600, outline: 'none' }} />
