@@ -76,7 +76,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  const [mainTab, setMainTab] = useState('dashboard');
+  const [mainTab, setMainTab] = useState('overview');
   const [station, setStation] = useState('전체');
   const [mappedLocation, setMappedLocation] = useState('대구 전체');
   
@@ -366,6 +366,15 @@ export default function Dashboard() {
     }
   };
 
+  useEffect(() => {
+    if (mainTab !== 'overview') return;
+    fetchOverviewData(false);
+    const intervalId = setInterval(() => {
+      fetchOverviewData(false);
+    }, 300000);
+    return () => clearInterval(intervalId);
+  }, [mainTab]);
+  
   const fetchCompareData = async () => {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setCompLoading(true);
