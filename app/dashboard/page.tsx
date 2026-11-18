@@ -162,6 +162,17 @@ export default function Dashboard() {
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewFilter, setOverviewFilter] = useState('all');
 
+  // 🌟 [모바일 반응형] 스마트폰 화면(768px 이하) 감지 및 모바일 개소 선택창 열림 상태
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileStationOpen, setMobileStationOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [showNewReportModal, setShowNewReportModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -600,74 +611,145 @@ export default function Dashboard() {
       onMouseLeave={handleMouseUp}
       style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}
     >
-      <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
-            DTRO <span style={{ fontWeight: 400, color: '#94A3B8' }}>스마트 에너지 관리 시스템</span>
-          </h1>
+      {/* 🌟 스마트폰(768px 이하) 접속 시에만 작동하는 반응형 레이아웃 규칙 (PC 화면은 100% 기존 유지) */}
+      <style>{`
+        @media (max-width: 768px) {
+          .dtro-main-content div[style*="justify-content: space-between"][style*="align-items: flex-end"] {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 14px !important;
+          }
+          .dtro-main-content div[style*="justify-content: space-between"][style*="align-items: flex-end"] > div {
+            width: 100% !important;
+            flex-wrap: wrap !important;
+            box-sizing: border-box !important;
+          }
+          .dtro-main-content div[style*="grid-template-columns: repeat(3, 1fr)"],
+          .dtro-main-content div[style*="grid-template-columns: 1.2fr 1fr"],
+          .dtro-main-content div[style*="grid-template-columns: 2fr 1fr"] {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+          }
+          .dtro-main-content div[style*="grid-template-columns: repeat(4, 1fr)"] {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+          }
+          div[style*="width: 400px"],
+          div[style*="width: 500px"] {
+            width: 92vw !important;
+            max-height: 88vh !important;
+            overflow-y: auto !important;
+            padding: 20px !important;
+            box-sizing: border-box !important;
+          }
+        }
+      `}</style>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => { setMainTab('overview'); fetchOverviewData(false); }} style={{ padding: '8px 16px', backgroundColor: mainTab === 'overview' ? 'rgba(16, 185, 129, 0.2)' : 'transparent', color: mainTab === 'overview' ? '#10B981' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🚦 종합 관제</button>
-            <button onClick={() => setMainTab('dashboard')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'dashboard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'dashboard' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>⚡ 통합 대시보드</button>
-            <button onClick={() => setMainTab('compare')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'compare' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'compare' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>📊 연도별 비교</button>
-            <button onClick={() => setMainTab('predict')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'predict' ? 'rgba(232, 62, 140, 0.15)' : 'transparent', color: mainTab === 'predict' ? theme.ai : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🤖 AI 수요 예측</button>
-            <button onClick={() => setMainTab('bill')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'bill' ? 'rgba(25, 128, 56, 0.15)' : 'transparent', color: mainTab === 'bill' ? theme.success : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>🧾 전기요금</button>
-            <button onClick={() => setMainTab('report')} style={{ padding: '8px 16px', backgroundColor: mainTab === 'report' ? 'rgba(218, 30, 40, 0.15)' : 'transparent', color: mainTab === 'report' ? theme.danger : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s' }}>📝 부하증감 신고</button>
+      <div style={{ 
+        backgroundColor: '#0F172A', color: 'white', display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', 
+        padding: isMobile ? '12px 16px' : '16px 32px', gap: isMobile ? '12px' : '0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.1)' 
+      }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? '10px' : '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1 style={{ margin: 0, fontSize: isMobile ? '1.15rem' : '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
+              DTRO <span style={{ fontWeight: 400, color: '#94A3B8', fontSize: isMobile ? '0.95rem' : '1.4rem' }}>스마트 에너지 관리 시스템</span>
+            </h1>
+            {isMobile && (
+              <button onClick={() => router.push('/')} style={{ padding: '6px 10px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '11px', whiteSpace: 'nowrap' }}>로그아웃</button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', overflowX: isMobile ? 'auto' : 'visible', paddingBottom: isMobile ? '4px' : '0', whiteSpace: 'nowrap' }}>
+            <button onClick={() => { setMainTab('overview'); fetchOverviewData(false); }} style={{ padding: isMobile ? '7px 12px' : '8px 16px', backgroundColor: mainTab === 'overview' ? 'rgba(16, 185, 129, 0.2)' : 'transparent', color: mainTab === 'overview' ? '#10B981' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? '13px' : '14px', transition: 'all 0.2s', flexShrink: 0 }}>🚦 종합 관제</button>
+            <button onClick={() => setMainTab('dashboard')} style={{ padding: isMobile ? '7px 12px' : '8px 16px', backgroundColor: mainTab === 'dashboard' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'dashboard' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '13px' : '14px', transition: 'all 0.2s', flexShrink: 0 }}>⚡ 통합 대시보드</button>
+            <button onClick={() => setMainTab('compare')} style={{ padding: isMobile ? '7px 12px' : '8px 16px', backgroundColor: mainTab === 'compare' ? 'rgba(255,255,255,0.1)' : 'transparent', color: mainTab === 'compare' ? '#FFF' : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '13px' : '14px', transition: 'all 0.2s', flexShrink: 0 }}>📊 연도별 비교</button>
+            <button onClick={() => setMainTab('predict')} style={{ padding: isMobile ? '7px 12px' : '8px 16px', backgroundColor: mainTab === 'predict' ? 'rgba(232, 62, 140, 0.15)' : 'transparent', color: mainTab === 'predict' ? theme.ai : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '13px' : '14px', transition: 'all 0.2s', flexShrink: 0 }}>🤖 AI 수요 예측</button>
+            <button onClick={() => setMainTab('bill')} style={{ padding: isMobile ? '7px 12px' : '8px 16px', backgroundColor: mainTab === 'bill' ? 'rgba(25, 128, 56, 0.15)' : 'transparent', color: mainTab === 'bill' ? theme.success : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '13px' : '14px', transition: 'all 0.2s', flexShrink: 0 }}>🧾 전기요금</button>
+            <button onClick={() => setMainTab('report')} style={{ padding: isMobile ? '7px 12px' : '8px 16px', backgroundColor: mainTab === 'report' ? 'rgba(218, 30, 40, 0.15)' : 'transparent', color: mainTab === 'report' ? theme.danger : '#94A3B8', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: isMobile ? '13px' : '14px', transition: 'all 0.2s', flexShrink: 0 }}>📝 부하증감 신고</button>
           </div>
         </div>
         
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
           {isAdmin && (
-            <button onClick={handleMasterBackup} style={{ padding: '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
+            <button onClick={handleMasterBackup} style={{ padding: isMobile ? '6px 12px' : '8px 16px', backgroundColor: '#10B981', color: '#FFF', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: isMobile ? '12px' : '13px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)' }}>
               💾 마스터 누적 백업
             </button>
           )}
-          <div style={{ color: '#94A3B8', fontSize: '12px', marginRight: '10px' }}>
+          <div style={{ color: '#94A3B8', fontSize: '12px', marginRight: isMobile ? '0' : '10px' }}>
             ID: {userId} {isAdmin ? '(관리자)' : '(일반)'}
           </div>
-          <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
+          {!isMobile && (
+            <button onClick={() => router.push('/')} style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#94A3B8', border: '1px solid #334155', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>로그아웃</button>
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: 'hidden' }}>
         
         {mainTab !== 'report' && mainTab !== 'overview' && (
-          <div style={{ width: '280px', backgroundColor: theme.surface, borderRight: `1px solid ${theme.border}`, padding: '24px 16px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-            <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <button onClick={() => { toggleMenu('전체'); setStation('전체'); }} style={getBtnStyle('전체')}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체</span>
-                <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus['전체'] ? '▼' : '▶'}</span>
-              </button>
-              {openMenus['전체'] && (
-                <div style={{ paddingLeft: '6px', marginTop: '4px', borderLeft: `2px solid ${theme.border}`, marginLeft: '16px', marginBottom: '8px' }}>
-                  {['1호선', '2호선', '3호선'].map((line) => {
-                    const isBillLine1 = mainTab === 'bill' && line === '1호선';
-                    const subStations = isBillLine1 ? [] : stationsData[line];
-                    const hasSubs = subStations.length > 0;
-                    
-                    return (
-                      <div key={line}>
-                        <button onClick={() => { if (hasSubs) toggleMenu(line); setStation(line); }} style={getBtnStyle(line)}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🚆 {line}</span>
-                          {hasSubs && <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus[line] ? '▼' : '▶'}</span>}
-                        </button>
-                        {hasSubs && openMenus[line] && subStations.map((sub) => (
-                          <button key={sub} onClick={() => setStation(sub)} style={getBtnStyle(sub, true)}>• {sub}</button>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <button onClick={() => setStation('종합청사')} style={getBtnStyle('종합청사')}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span>
-              </button>
-            </div>
+          <div style={{ 
+            width: isMobile ? '100%' : '280px', 
+            backgroundColor: theme.surface, 
+            borderRight: isMobile ? 'none' : `1px solid ${theme.border}`, 
+            borderBottom: isMobile ? `1px solid ${theme.border}` : 'none',
+            padding: isMobile ? '10px 16px' : '24px 16px', 
+            display: 'flex', flexDirection: 'column', 
+            overflowY: 'auto',
+            maxHeight: isMobile ? (mobileStationOpen ? '320px' : '48px') : 'none',
+            boxSizing: 'border-box',
+            flexShrink: 0
+          }}>
+            {isMobile ? (
+              <div 
+                onClick={() => setMobileStationOpen(!mobileStationOpen)} 
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '4px 4px' }}
+              >
+                <span style={{ fontSize: '13px', fontWeight: 800, color: theme.primary }}>📍 대상 개소 선택: {station}</span>
+                <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 700 }}>{mobileStationOpen ? '닫기 ▲' : '개소 변경 ▼'}</span>
+              </div>
+            ) : (
+              <h2 style={{ fontSize: '0.85rem', color: theme.textMuted, fontWeight: 700, paddingLeft: '12px', marginBottom: '16px', textTransform: 'uppercase' }}>대상 개소 선택</h2>
+            )}
+
+            {(!isMobile || mobileStationOpen) && (
+              <div style={{ display: 'flex', flexDirection: 'column', marginTop: isMobile ? '10px' : '0' }}>
+                <button onClick={() => { toggleMenu('전체'); setStation('전체'); if (isMobile) setMobileStationOpen(false); }} style={getBtnStyle('전체')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏢 전체</span>
+                  <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus['전체'] ? '▼' : '▶'}</span>
+                </button>
+                {openMenus['전체'] && (
+                  <div style={{ paddingLeft: '6px', marginTop: '4px', borderLeft: `2px solid ${theme.border}`, marginLeft: '16px', marginBottom: '8px' }}>
+                    {['1호선', '2호선', '3호선'].map((line) => {
+                      const isBillLine1 = mainTab === 'bill' && line === '1호선';
+                      const subStations = isBillLine1 ? [] : stationsData[line];
+                      const hasSubs = subStations.length > 0;
+                      
+                      return (
+                        <div key={line}>
+                          <button onClick={() => { if (hasSubs) toggleMenu(line); setStation(line); }} style={getBtnStyle(line)}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🚆 {line}</span>
+                            {hasSubs && <span style={{ fontSize: '10px', color: theme.textMuted }}>{openMenus[line] ? '▼' : '▶'}</span>}
+                          </button>
+                          {hasSubs && openMenus[line] && subStations.map((sub) => (
+                            <button key={sub} onClick={() => { setStation(sub); if (isMobile) setMobileStationOpen(false); }} style={getBtnStyle(sub, true)}>• {sub}</button>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <button onClick={() => { setStation('종합청사'); if (isMobile) setMobileStationOpen(false); }} style={getBtnStyle('종합청사')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>🏛️ 종합청사</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+        <div className="dtro-main-content" style={{ flex: 1, padding: isMobile ? '16px' : '32px 40px', overflowY: 'auto' }}>
           
           {/* ===================== [1. 통합 대시보드 탭] ===================== */}
           {mainTab === 'dashboard' && (
@@ -1476,8 +1558,7 @@ export default function Dashboard() {
             </div>
           )}
 
-        </div>
-      </div>
+
 
 {/* ===================== [6. 24개 전 개소 종합 관제 상황판 탭] ===================== */}
           {mainTab === 'overview' && (
@@ -1639,6 +1720,9 @@ export default function Dashboard() {
               )}
             </div>
           )}
+
+        </div>
+      </div>
 
       {/* ===================== [관리자 전용] 급전 계통 매핑 모달 ===================== */}
       {showMappingModal && (
