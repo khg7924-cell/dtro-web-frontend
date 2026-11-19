@@ -141,10 +141,10 @@ export default function Dashboard() {
   const [aiReport, setAiReport] = useState('');
 
   const [targetYear, setTargetYear] = useState('2026');
-  const [passRate, setPassRate] = useState('5.0');
-  const [tempAdj, setTempAdj] = useState('+1.5');
-  const [winterTempAdj, setWinterTempAdj] = useState('-2.0');
-  const [pm25Adj, setPm25Adj] = useState('+15');
+  const [passRate, setPassRate] = useState('+1.5');
+  const [tempAdj, setTempAdj] = useState('-0.6');
+  const [winterTempAdj, setWinterTempAdj] = useState('+0.6');
+  const [pm25Adj, setPm25Adj] = useState('+11');
   const [predLoading, setPredLoading] = useState(false);
   const [predSummary, setPredSummary] = useState<any>(null);
   const [predChartData, setPredChartData] = useState<any[]>([]);
@@ -467,6 +467,100 @@ export default function Dashboard() {
   };
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
+  // 🌟 연도별 비교 심층 분석 리포트 컬러 강조 렌더러 (1안: 텍스트 컬러형 / A: 감소 초록색 통일)
+  const renderHighlightedReport = (text: string) => {
+    const tokenRegex = /([+-]\d[\d,]*(?:\.\d+)?(?:\s*(?:kWh\/일|kWh|kW|원|명\/일|명|℃·일|℃|%p|%|㎍\/㎥|일))?[↑↓당]?|전사적 절전 및 운영 최적화 순절감!|청사 에너지 절감 및 운영 최적화 순절감!|설비 가동률 및 기저부하 상승|사무기기·전산실 및 기저 설비 부하 상승|🌟 \[핵심 성과\]|\[(?:하절기|동절기|도시철도|열대야|월별 핵심|신규 개통|기존 동일)[^\]]*\])/g;
+
+    const highlightInline = (line: string) => {
+      const parts = line.split(tokenRegex);
+      return parts.map((part, idx) => {
+        if (!part) return null;
+
+        // 1) 부호가 붙은 증감 수치 (+: 빨강, -: 초록, 0: 회색 / 기준치 ↑↓ 및 민감도 '당' 제외)
+        if (/^[+-]\d/.test(part)) {
+          if (part.endsWith('↑') || part.endsWith('↓') || part.endsWith('당')) {
+            return <React.Fragment key={idx}>{part}</React.Fragment>;
+          }
+          const numMatch = part.match(/^([+-]\d[\d,]*(?:\.\d+)?)/);
+          const numVal = numMatch ? parseFloat(numMatch[1].replace(/,/g, '')) : 0;
+          const color = numVal === 0 ? theme.textMuted : numVal > 0 ? theme.danger : theme.success;
+          return (
+            <span key={idx} style={{ color, fontWeight: numVal === 0 ? 600 : 700 }}>
+              {part}
+            </span>
+          );
+        }
+
+        // 2) 절감 및 핵심 성과 문구 (초록색 굵게)
+        if (
+          part === '전사적 절전 및 운영 최적화 순절감!' ||
+          part === '청사 에너지 절감 및 운영 최적화 순절감!' ||
+          part === '🌟 [핵심 성과]'
+        ) {
+          return (
+            <span key={idx} style={{ color: theme.success, fontWeight: 700 }}>
+              {part}
+            </span>
+          );
+        }
+
+        // 3) 기저부하 상승 경고 문구 (빨간색 굵게)
+        if (
+          part === '설비 가동률 및 기저부하 상승' ||
+          part === '사무기기·전산실 및 기저 설비 부하 상승'
+        ) {
+          return (
+            <span key={idx} style={{ color: theme.danger, fontWeight: 700 }}>
+              {part}
+            </span>
+          );
+        }
+
+        // 4) 소주제 태그 (파란색 굵게)
+        if (part.startsWith('[') && part.endsWith(']')) {
+          return (
+            <span key={idx} style={{ color: theme.primary, fontWeight: 700 }}>
+              {part}
+            </span>
+          );
+        }
+
+        return <React.Fragment key={idx}>{part}</React.Fragment>;
+      });
+    };
+
+    return (
+      <div style={{ fontFamily: 'inherit', color: theme.textMain, fontSize: '15px', lineHeight: '1.75', fontWeight: 500 }}>
+        {text.split('\n').map((line, lineIdx) => {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            return <div key={lineIdx} style={{ height: '10px' }} />;
+          }
+
+          const isMainTitle = trimmed.startsWith('📊') || trimmed.startsWith('🏢');
+          const isSectionTitle = /^(\[1\]|\[2\]|🧠 \[3\]|🔍 \[4\])/.test(trimmed);
+          const isSubTitle = /^[①②③④]\s/.test(trimmed);
+          const isNotice = trimmed.startsWith('※') || trimmed.startsWith('⚠️');
+
+          const lineStyle: React.CSSProperties = isMainTitle
+            ? { fontSize: '16.5px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }
+            : isSectionTitle
+            ? { fontSize: '15.5px', fontWeight: 800, color: theme.primary, marginTop: '6px', marginBottom: '2px' }
+            : isSubTitle
+            ? { fontWeight: 700, color: '#0F172A', marginTop: '4px' }
+            : isNotice
+            ? { fontSize: '13.5px', color: trimmed.startsWith('⚠️') ? '#B45309' : theme.textMuted, fontWeight: 600 }
+            : {};
+
+          return (
+            <div key={lineIdx} style={{ whiteSpace: 'pre-wrap', ...lineStyle }}>
+              {highlightInline(line)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const getLeftYAxisDomain = (dataMax: number) => Math.round(dataMax * 1.3) || 1000;
   const getRightYAxisDomain = (dataMax: number) => Math.round(Math.max(dataMax * 1.3, activeThreshold > 0 ? activeThreshold * 1.15 : 0)) || 100;
@@ -1137,7 +1231,7 @@ export default function Dashboard() {
                   {compLoading ? (
                     <p style={{ color: theme.secondary, fontWeight: 700 }}>AI가 데이터를 분석하고 있습니다... ⏳</p>
                   ) : aiReport ? (
-                    <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', color: theme.textMain, fontSize: '15px', lineHeight: '1.7', margin: 0, fontWeight: 500 }}>{aiReport}</pre>
+                    renderHighlightedReport(aiReport)
                   ) : <p style={{ color: theme.textMuted, fontWeight: 500 }}>비교 분석을 실행해 주세요.</p>}
                 </div>
               </Card>
