@@ -467,7 +467,7 @@ export default function Dashboard() {
   };
 
   const getTabStyle = (isActive: boolean) => ({ padding: '8px 16px', backgroundColor: isActive ? theme.primary : '#F1F5F9', color: isActive ? 'white' : theme.textMuted, border: 'none', borderRadius: '24px', cursor: 'pointer', fontWeight: isActive ? 700 : 600, fontSize: '13px', transition: 'all 0.2s ease' });
-  // 🌟 연도별 비교 심층 분석 리포트 컬러 강조 렌더러 (1안: 텍스트 컬러형 / A: 감소 초록색 통일)
+  // 🌟 연도별 비교 심층 분석 리포트 컬러 강조 + [1]~[3] 소제목 볼드 렌더러
   const renderHighlightedReport = (text: string) => {
     const tokenRegex = /([+-]\d[\d,]*(?:\.\d+)?(?:\s*(?:kWh\/일|kWh|kW|원|명\/일|명|℃·일|℃|%p|%|㎍\/㎥|일))?[↑↓당]?|전사적 절전 및 운영 최적화 순절감!|청사 에너지 절감 및 운영 최적화 순절감!|설비 가동률 및 기저부하 상승|사무기기·전산실 및 기저 설비 부하 상승|🌟 \[핵심 성과\]|\[(?:하절기|동절기|도시철도|열대야|월별 핵심|신규 개통|기존 동일)[^\]]*\])/g;
 
@@ -529,6 +529,8 @@ export default function Dashboard() {
       });
     };
 
+    let currentSection = 0;
+
     return (
       <div style={{ fontFamily: 'inherit', color: theme.textMain, fontSize: '15px', lineHeight: '1.75', fontWeight: 500 }}>
         {text.split('\n').map((line, lineIdx) => {
@@ -536,6 +538,12 @@ export default function Dashboard() {
           if (!trimmed) {
             return <div key={lineIdx} style={{ height: '10px' }} />;
           }
+
+          // 🌟 현재 섹션([1]~[4]) 추적
+          if (trimmed.startsWith('[1]')) currentSection = 1;
+          else if (trimmed.startsWith('[2]')) currentSection = 2;
+          else if (trimmed.startsWith('🧠 [3]') || trimmed.startsWith('[3]')) currentSection = 3;
+          else if (trimmed.startsWith('🔍 [4]') || trimmed.startsWith('[4]')) currentSection = 4;
 
           const isMainTitle = trimmed.startsWith('📊') || trimmed.startsWith('🏢');
           const isSectionTitle = /^(\[1\]|\[2\]|🧠 \[3\]|🔍 \[4\])/.test(trimmed);
@@ -552,9 +560,21 @@ export default function Dashboard() {
             ? { fontSize: '13.5px', color: trimmed.startsWith('⚠️') ? '#B45309' : theme.textMuted, fontWeight: 600 }
             : {};
 
+          // 🌟 [1], [2], [3] 구간의 본문 줄에서 ' : ' 앞부분 소제목을 진한 볼드 처리
+          const sepIdx = !isSectionTitle && currentSection >= 1 && currentSection <= 3 ? line.indexOf(' : ') : -1;
+
           return (
             <div key={lineIdx} style={{ whiteSpace: 'pre-wrap', ...lineStyle }}>
-              {highlightInline(line)}
+              {sepIdx !== -1 ? (
+                <>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>
+                    {highlightInline(line.slice(0, sepIdx))}
+                  </span>
+                  {highlightInline(line.slice(sepIdx))}
+                </>
+              ) : (
+                highlightInline(line)
+              )}
             </div>
           );
         })}
