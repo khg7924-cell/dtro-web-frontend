@@ -568,9 +568,9 @@ export default function Dashboard() {
               {sepIdx !== -1 ? (
                 <>
                   <span style={{ fontWeight: 700, color: '#0F172A' }}>
-                    {highlightInline(line.slice(0, sepIdx))}
+                    {highlightInline(line.slice(0, sepIdx+ 2))}
                   </span>
-                  {highlightInline(line.slice(sepIdx))}
+                  {highlightInline(line.slice(sepIdx+ 2))}
                 </>
               ) : (
                 highlightInline(line)
