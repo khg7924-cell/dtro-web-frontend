@@ -392,6 +392,7 @@ export default function Dashboard() {
     if (!isDatasetReady) { alert("통합 데이터셋이 없습니다."); return; }
     setPredLoading(true); setPredSummary(null); setPredChartData([]); setFeatChartData([]);
     try {
+      const effectivePassRate = station === '종합청사' ? '0' : passRate;
       const response = await fetch(`${API_URL}/api/predict/${encodeURIComponent(station)}?target_year=${targetYear}&pass_rate=${passRate}&temp_adj=${tempAdj}&winter_temp_adj=${winterTempAdj}&pm25_adj=${pm25Adj}`);
       const result = await response.json();
       if (result.error) { alert(result.error); setPredLoading(false); return; }
@@ -1184,10 +1185,12 @@ export default function Dashboard() {
                 <span style={{ fontSize: '1rem', fontWeight: 700, color: theme.textMain }}>🔮 시뮬레이션 변수 조정</span>
                 <div style={{ width: '1px', height: '24px', backgroundColor: theme.border }}></div>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>승객수(%)</span>
-                  <input type="text" value={passRate} onChange={(e) => setPassRate(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
-                </div>
+                {station !== '종합청사' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>승객수(%)</span>
+                    <input type="text" value={passRate} onChange={(e) => setPassRate(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>여름(±°C)</span>
                   <input type="text" value={tempAdj} onChange={(e) => setTempAdj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
@@ -1200,6 +1203,11 @@ export default function Dashboard() {
                   <span style={{ color: theme.textMuted, fontSize: '13px', fontWeight: 600 }}>PM2.5 나쁨(±일)</span>
                   <input type="text" value={pm25Adj} onChange={(e) => setPm25Adj(e.target.value)} style={{ width: '50px', padding: '6px', border: `1px solid ${theme.border}`, borderRadius: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 600 }} />
                 </div>
+                {station === '종합청사' && (
+                  <span style={{ fontSize: '12px', color: theme.textMuted, fontWeight: 600 }}>
+                    ※ 종합청사 업무시설 전용 모델 (승객수 제외)
+                  </span>
+                )}
               </div>
 
               {/* 🌟 3. AI 수요 예측 탭: 예상 연간 총 전력량 및 최대 수요(Peak) 정수 반올림 표기 */}
