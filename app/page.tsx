@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '../firebase'; // firebase.js 위치에 맞게 경로 조절 필요
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -14,18 +14,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [department, setDepartment] = useState(''); 
   const [userName, setUserName] = useState(''); 
-
-  // 🌟 화면 폭 감지 (768px 이하일 때만 모바일 레이아웃 작동, PC는 기존과 100% 동일)
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const formatEmail = (id: string) => `${id}@dtro.local`;
 
@@ -115,54 +103,51 @@ export default function LoginPage() {
   return (
     <div style={{ 
       display: 'flex', 
-      flexDirection: isMobile ? 'column' : 'row',
-      height: isMobile ? 'auto' : '100vh', 
-      minHeight: '100vh',
+      flexDirection: 'row',
+      height: '100vh', 
+      minHeight: '720px',
+      minWidth: '1200px',
       width: '100%',
-      maxWidth: '100vw',
       fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', 
       backgroundColor: '#F8FAFC',
-      overflowX: 'hidden',
-      overflowY: isMobile ? 'auto' : 'hidden'
+      overflow: 'hidden'
     }}>
       
-      {/* 왼쪽(모바일은 상단 슬림 헤더): 브랜드 및 안내 영역 */}
+      {/* 왼쪽: 브랜드 및 안내 영역 */}
       <div style={{ 
-        flex: isMobile ? 'none' : 1, 
+        flex: 1, 
         backgroundColor: '#0F172A', 
         color: 'white', 
         display: 'flex', 
         flexDirection: 'column', 
         justifyContent: 'center', 
-        padding: isMobile ? '24px 20px' : '60px', 
+        padding: '60px', 
         position: 'relative', 
         overflow: 'hidden' 
       }}>
         <div style={{ position: 'relative', zIndex: 2 }}>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '6px' : '18px', marginBottom: isMobile ? '10px' : '48px' }}>
-            <h1 style={{ margin: 0, fontSize: isMobile ? '1.45rem' : '3.8rem', fontFamily: 'sans-serif', letterSpacing: isMobile ? '-0.5px' : '-1.5px', lineHeight: 1.2 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '48px' }}>
+            <h1 style={{ margin: 0, fontSize: '3.8rem', fontFamily: 'sans-serif', letterSpacing: '-1.5px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
               <span style={{ fontWeight: 900, color: '#0F62FE' }}>DTRO</span>
               <span style={{ fontWeight: 300, color: '#FFFFFF' }}> 스마트 에너지 관리 시스템</span>
             </h1>
-            <div style={{ fontSize: isMobile ? '0.8rem' : '1.4rem', color: '#94A3B8', fontWeight: 600, letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: '1.4rem', color: '#94A3B8', fontWeight: 600, letterSpacing: '0.5px' }}>
               <span style={{ fontWeight: 800, letterSpacing: '1.5px' }}>SEMS</span> 
               <span style={{ color: '#475569', fontWeight: 400, marginLeft: '8px' }}>| Smart Energy Management System</span>
             </div>
           </div>
 
-          <p style={{ fontSize: isMobile ? '0.82rem' : '1.25rem', color: '#94A3B8', margin: isMobile ? '0' : '0 0 40px 0', lineHeight: 1.5 }}>
-            대구교통공사 빅데이터 통합 관제 플랫폼 {!isMobile && <br />}
-            {!isMobile && '기상, 대기질, 전력 데이터를 AI로 정밀 분석합니다.'}
+          <p style={{ fontSize: '1.25rem', color: '#94A3B8', margin: '0 0 40px 0', lineHeight: 1.5 }}>
+            대구교통공사 빅데이터 통합 관제 플랫폼 <br />
+            기상, 대기질, 전력 데이터를 AI로 정밀 분석합니다.
           </p>
 
-          {!isMobile && (
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>⚡ 실시간 전력 분석</span>
-              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>🌤️ 기상청/대기질 연동</span>
-              <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600 }}>🤖 AI 전력 수요 예측</span>
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'nowrap' }}>
+            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>⚡ 실시간 전력 분석</span>
+            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🌤️ 기상청/대기질 연동</span>
+            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '24px', fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap' }}>🤖 AI 전력 수요 예측</span>
+          </div>
         </div>
         
         {/* 장식용 배경 원 */}
@@ -170,20 +155,20 @@ export default function LoginPage() {
         <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '400px', height: '400px', backgroundColor: '#8A3FFC', borderRadius: '50%', filter: 'blur(100px)', opacity: 0.3, zIndex: 1 }}></div>
       </div>
 
-      {/* 오른쪽(모바일은 하단): 입력 폼 영역 */}
+      {/* 오른쪽: 입력 폼 영역 */}
       <div style={{ 
         flex: 1, 
         display: 'flex', 
-        alignItems: isMobile ? 'flex-start' : 'center', 
+        alignItems: 'center', 
         justifyContent: 'center', 
         backgroundColor: '#F8FAFC',
-        padding: isMobile ? '20px 16px 32px 16px' : '0',
+        padding: '0 32px',
         boxSizing: 'border-box'
       }}>
         <div style={{ 
           backgroundColor: '#FFFFFF', 
-          padding: isMobile ? '24px 20px' : '48px', 
-          borderRadius: isMobile ? '18px' : '24px', 
+          padding: '48px', 
+          borderRadius: '24px', 
           boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)', 
           width: '100%', 
           maxWidth: '440px', 
@@ -191,16 +176,16 @@ export default function LoginPage() {
           boxSizing: 'border-box'
         }}>
           
-          <h2 style={{ margin: '0 0 6px 0', color: '#111827', fontSize: isMobile ? '1.35rem' : '1.8rem', fontWeight: 800 }}>
+          <h2 style={{ margin: '0 0 8px 0', color: '#111827', fontSize: '1.8rem', fontWeight: 800 }}>
             {isLoginMode ? '계정 로그인' : '계정 등록 신청'}
           </h2>
-          <p style={{ margin: isMobile ? '0 0 20px 0' : '0 0 32px 0', color: '#64748B', fontSize: isMobile ? '0.85rem' : '0.95rem' }}>
+          <p style={{ margin: '0 0 32px 0', color: '#64748B', fontSize: '0.95rem' }}>
             {isLoginMode 
               ? '접근 권한이 있는 계정을 입력해 주세요.' 
               : '가입 신청 후 관리자의 승인이 완료되어야 로그인이 가능합니다.'}
           </p>
           
-          <form onSubmit={isLoginMode ? handleLogin : handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '14px' : '20px' }}>
+          <form onSubmit={isLoginMode ? handleLogin : handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
             {!isLoginMode && (
               <>
@@ -211,7 +196,7 @@ export default function LoginPage() {
                     value={department} 
                     onChange={(e) => setDepartment(e.target.value)} 
                     placeholder="예 : 전기관리팀"
-                    style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
                   />
                 </div>
 
@@ -222,7 +207,7 @@ export default function LoginPage() {
                     value={userName} 
                     onChange={(e) => setUserName(e.target.value)} 
                     placeholder="이름 입력"
-                    style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
                   />
                 </div>
               </>
@@ -235,7 +220,7 @@ export default function LoginPage() {
                 value={userId} 
                 onChange={(e) => setUserId(e.target.value)} 
                 placeholder={isLoginMode ? "아이디 입력" : "사용할 아이디 입력"}
-                style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
               />
             </div>
             
@@ -246,19 +231,19 @@ export default function LoginPage() {
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 placeholder="비밀번호 입력"
-                style={{ width: '100%', padding: isMobile ? '12px 14px' : '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #CBD5E1', fontSize: '0.95rem', backgroundColor: '#F8FAFC', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
               />
             </div>
             
             <button 
               type="submit" 
-              style={{ width: '100%', padding: isMobile ? '14px' : '16px', marginTop: '8px', backgroundColor: isLoginMode ? '#0F62FE' : '#8A3FFC', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}
+              style={{ width: '100%', padding: '16px', marginTop: '8px', backgroundColor: isLoginMode ? '#0F62FE' : '#8A3FFC', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)' }}
             >
               {isLoginMode ? '로그인' : '계정 등록 신청'}
             </button>
           </form>
           
-          <div style={{ marginTop: isMobile ? '20px' : '32px', textAlign: 'center' }}>
+          <div style={{ marginTop: '32px', textAlign: 'center' }}>
             {isLoginMode ? (
               <p style={{ margin: 0, color: '#64748B', fontSize: '0.85rem' }}>
                 계정이 없으신가요?{' '}

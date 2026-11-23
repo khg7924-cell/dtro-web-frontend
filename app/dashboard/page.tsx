@@ -713,7 +713,7 @@ export default function Dashboard() {
       onMouseMove={handleMouseMove} 
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100vh', minWidth: '1400px', fontFamily: '"Pretendard", "Malgun Gothic", sans-serif', backgroundColor: theme.bg }}
     >
       <div style={{ backgroundColor: '#0F172A', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
